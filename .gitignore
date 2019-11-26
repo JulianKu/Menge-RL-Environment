@@ -1,6 +1,8 @@
 build/
 devel/
 .catkin_workspace
+log.css
+log.html
 
 
 ### General Python ignores
