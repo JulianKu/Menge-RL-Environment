@@ -64,9 +64,9 @@ class MapParser:
 
         # empty intermediates for line extraction
         self.thresh = None
-        self.closing = None
+        self.closed = None
         self.dilated = None
-        self.lines = None
+        self.eroded = None
         self.contours = None
 
         # empty xml tree
@@ -125,34 +125,40 @@ class MapParser:
         # write to file
         self.tree.write(self.output, xml_declaration=True, encoding='utf-8', method="xml")
 
-    def extract_obstacles(self, r_d=15, r_c=20, tolerance=0.5):
+    def extract_obstacles(self, r_d=15, r_c=20, r_e=10, tolerance=0.5):
         """
         extract static obstacles from image by detecting lines/contours
 
         :param r_d:             radius for structuring element for dilation
         :param r_c:             radius for structuring element for closing
+        :param r_e:             radius for structuring element for erosion
         :param tolerance:       tolerance value in [m] for the obstacle approximation
         """
         ungrayed = self.img.copy()
         # pixel without information got initially assigned gray (128) --> make white (255) instead
         ungrayed[ungrayed == 128] = 255
         # threshold only keep dark pixel --> obstacles
-        _, self.thresh = cv2.threshold(ungrayed, 100, 255, cv2.THRESH_BINARY_INV)
+        _, thresh = cv2.threshold(ungrayed, 100, 255, cv2.THRESH_BINARY_INV)
         # closing + dilation to connect structures
         kernel_dilation = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_d, r_d))
-        self.dilated = cv2.dilate(self.thresh, kernel_dilation)
+        dilated = cv2.dilate(thresh, kernel_dilation)
         kernel_closing = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_c, r_c))
-        self.closing = cv2.morphologyEx(self.dilated, cv2.MORPH_CLOSE, kernel_closing)
-
-        # extract lines
-        self.lines = cv2.HoughLinesP(self.closing, 1, np.pi / 180, 40, minLineLength=30, maxLineGap=30)
+        closed = cv2.morphologyEx(dilated, cv2.MORPH_CLOSE, kernel_closing)
+        # erosion to slim out obstacles again
+        kernel_erosion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_e, r_e))
+        eroded = cv2.erode(closed, kernel_erosion)
 
         # extract contours
-        contours = measure.find_contours(self.closing, 1, fully_connected='high', positive_orientation='high')
+        contours = measure.find_contours(eroded, 1, fully_connected='high', positive_orientation='high')
         contours = [np.rint(contour).astype('int32') for contour in contours]
         # remove inner contours
         contours = remove_inner_contours(contours)
         self.contours = approximate_contours(contours, tolerance / self.resolution)
+
+        self.thresh = thresh
+        self.closed = closed
+        self.dilated = dilated
+        self.eroded = eroded
 
         self.edges_extracted = True  # set flag
 
@@ -173,16 +179,18 @@ class MapParser:
         :param image:   must be either 2D (w,h) or 3D (w,h,c) numpy array or one of then following identifiers (str):
                         "orig"             -- plot input image
                         "thresh"           -- plot input image but only keep dark pixel
-                        "closing"          -- plot morphological closing of the thresh image\n"
-                        "dilclos"          -- plot morphological dilation of the closing image\n"
-                        "lines"            -- plot extracted lines from input image\n"
-                        "lines_orig"       -- plot extracted lines over input image\n"
+                        "dilation"         -- plot morphological dilation of the thresh image\n"
+                        "closing"          -- plot morphological closing of the dilated image\n"
+                        "erosion"         -- plot morphological erosion of the closed image\n"
                         "contours"         -- plot extracted contours from input image\n"
                         "contours_orig"    -- plot extracted contours over input image"
         """
+
         if image is None:
             # if nothing specified --> plot original image
+            plt.title(' '.join(['map', self.img_name]))
             plt.imshow(self.img, cmap="gray")
+
         elif type(image) == np.ndarray:
             # plot image that is passed as numpy array
             if image.ndim == 2:
@@ -193,32 +201,29 @@ class MapParser:
                 plt.imshow(image)
             else:
                 raise ValueError("Invalid image: contains less than 2 or more than 3 dimensions")
+
         elif type(image) == str:
             # plot image that is specified via name tag
             if image == "orig":
+                plt.title(' '.join(['map', self.img_name]))
                 plt.imshow(self.img, cmap='gray')
+
             else:
                 # if edge extractor has not been called before --> run first to be able to plot
                 if not self.edges_extracted:
                     print("Edges have not been extracted before. Running edge extractor with default settings now")
                     self.extract_obstacles()
 
+                plt.title(' '.join(['map', self.img_name, '-', image]))
+
                 if image == "thresh":
                     plt.imshow(255 - self.thresh, cmap='gray')
                 elif image == "closing":
-                    plt.imshow(255 - self.closing, cmap='gray')
+                    plt.imshow(255 - self.closed, cmap='gray')
                 elif image == "dilation":
                     plt.imshow(255 - self.dilated, cmap='gray')
-                elif image == "lines" or image == "lines_orig":
-                    plot = np.zeros(shape=self.img.shape + (3,), dtype=np.uint8)
-                    for line in self.lines:
-                        for x1, y1, x2, y2 in line:
-                            cv2.line(plot, (x1, y1), (x2, y2), (0, 0, 255), 3)
-                    if image == "lines":
-                        plt.imshow(plot)
-                    else:
-                        plot = cv2.addWeighted(cv2.cvtColor(self.img.copy(), cv2.COLOR_GRAY2RGB), 0.5, plot, 1, 0)
-                        plt.imshow(plot)
+                elif image == "erosion":
+                    plt.imshow(255 - self.eroded, cmap='gray')
                 elif image == "contours" or image == "contours_orig":
                     if image == "contours":
                         base_image = np.zeros(shape=self.img.shape, dtype=np.uint8)
@@ -227,16 +232,10 @@ class MapParser:
                         base_image = self.img.copy()
                         alpha = 0.5
 
-                    fig, ax = plt.subplots()
-                    ax.imshow(base_image, cmap=plt.cm.gray)
+                    plt.imshow(base_image, cmap='gray')
 
                     for n, contour in enumerate(self.contours):
-                        ax.plot(contour[:, 1], contour[:, 0], linewidth=1, alpha=alpha)
-
-                    ax.axis('image')
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-                    plt.show()
+                        plt.plot(contour[:, 1], contour[:, 0], linewidth=1, alpha=alpha)
 
                 else:
                     raise ValueError("image must correspond to one of the following identifiers\n"
@@ -244,20 +243,21 @@ class MapParser:
                                      + " -- plot input image\n"
                                        "{:<15}".format("\"thresh\"")
                                      + " -- plot input image but only keep dark pixel\n"
+                                       "{:<15}".format("\"dilation\"")
+                                     + " -- plot morphological dilation of the thresh image\n"
                                        "{:<15}".format("\"closing\"")
-                                     + " -- plot morphological closing of the thresh image\n"
-                                       "{:<15}".format("\"dilclos\"")
-                                     + " -- plot morphological dilation of the closing image\n"
-                                       "{:<15}".format("\"lines\"")
-                                     + " -- plot extracted lines from input image\n"
-                                       "{:<15}".format("\"lines_orig\"")
-                                     + " -- plot extracted lines over input image\n"
+                                     + " -- plot morphological closing of the dilated image\n"
+                                       "{:<15}".format("\"erosion\"")
+                                     + " -- plot morphological erosion of the closed image\n"
                                        "{:<15}".format("\"contours\"")
                                      + " -- plot extracted contours from input image\n"
                                        "{:<15}".format("\"contours_orig\"")
                                      + " -- plot extracted contours over input image")
         else:
             raise ValueError("Either specify image directly via an array (np.ndarray) or via a name tag (str)")
+
+        plt.xticks([])
+        plt.yticks([])
         plt.show()
 
 
