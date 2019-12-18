@@ -528,6 +528,76 @@ class MapParser:
 
         pass
 
+    def make_navmesh(self):
+
+        verts, edges, faces, elev = triangulate_map(self.dims, self.contours, 5 / self.resolution)
+
+        navMesh = NavMesh()
+        navMesh.vertices = list(map(tuple, verts))
+        vertNodeMap = {}
+        edgeMap = {}
+        nodes = []
+
+        for f, face in enumerate(faces):
+            face_verts = face['verts']
+            face_edges = face['edges']
+            num_verts = len(face_verts)
+            node = Node()
+            faceObj = Face(v=list(face_verts))
+            node.poly = faceObj
+            A = B = C = 0.0
+            M = []
+            b = []
+            center_2d = Vector2(0, 0)
+
+            for vert_idx in face_verts:
+                if not vert_idx in vertNodeMap:
+                    vertNodeMap[vert_idx] = [node]
+                else:
+                    vertNodeMap[vert_idx].append(node)
+                vert = verts[vert_idx]
+                center_2d += Vector2(*vert)
+                M.append((*vert, 1))
+                b.append((elev[vert_idx]))
+
+            for edge_idx in face_edges:
+                edge = tuple(edges[edge_idx])
+                if not edge in edgeMap:
+                    edgeMap[edge] = [(f, faceObj)]
+                elif len(edgeMap[edge]) > 1:
+                    raise AttributeError("Edge %s has too many incident faces" % edge_idx)
+                else:
+                    edgeMap[edge].append((f, faceObj))
+            node.center = center_2d / num_verts
+
+            if num_verts == 3:
+                # solve explicitly
+                try:
+                    A, B, C = np.linalg.solve(M, b)
+                except np.linalg.linalg.LinAlgError:
+                    raise ValueError("Face {} is too close to being co-linear".format(f))
+            else:
+                # least squares
+                x, resid, rank, s = np.linalg.lstsq(M, b)
+                # TODO: Use rank and resid to confirm quality of answer:
+                #  rank will measure linear independence
+                #  resid will report planarity.
+                A, B, C = x
+
+            # TODO: This isn't necessarily normalized. If b proves to be the zero vector, then
+            # I'm looking at the vector that is the nullspace of the matrix and that's true to
+            # arbitrary scale. Confirm that this isn't a problem.
+            node.A = A
+            node.B = B
+            node.C = C
+            navMesh.addNode(node)
+
+        print("Found %d edges" % (len(edges)))
+        internal = filter(lambda edge_idx: len(edgeMap[tuple(edges[edge_idx])]) > 1, edges)
+        external = filter(lambda edge_idx: len(edgeMap[tuple(edges[edge_idx])]) == 1, edges)
+        print("\tFound %d internal edges" % len(internal))
+        print("\tFound %d external edges" % len(external))
+
 
 if __name__ == '__main__':
 
