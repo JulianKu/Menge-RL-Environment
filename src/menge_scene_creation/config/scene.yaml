@@ -1,14 +1,16 @@
 Experiment:
     version: 2.0
+
     SpatialQuery: 
         type: kd-tree
         test_visibility: false
+
+    Common: 
+        time_step: 0.1
     OpenSteer: 
         max_force: 8
         leak_through: 0.1
         reaction_time: 0.5
-    Common: 
-        time_step: 0.1
     GCF: 
         reaction_time: 0.5
         max_agent_dist: 2
@@ -46,6 +48,7 @@ Experiment:
         force_distance: 0.005
     Dummy: 
         stddev: 1.0
+
     AgentProfilePed: 
         name: group1
         OpenSteer: 
@@ -87,6 +90,7 @@ Experiment:
         Zanlungo: 
             mass: 80
             orient_weight: 0.75
+
     AgentProfileRob: 
         name: robot
         inherits: group1        
@@ -98,4 +102,97 @@ Experiment:
             r: 0.3
             external: 1
         Helbing: 
-            mass: 320
+            mass: 32
+
+
+BFSM:
+    StateWalk: 
+        GoalSelector:
+            type: random
+            goal_set: 0
+            per_agent: 1
+        VelComponent: 
+            type: goal
+        Action:
+            type: offset_property
+            property: priority
+            dist: c
+            value: 0.0
+            exit_reset: 0
+        name: Walk
+        final: 0
+    StateArrive:
+        VelComponent: 
+            type: zero
+        Action: 
+            type: offset_property
+            property: priority
+            dist: c
+            value: 1.0
+            exit_reset: 0
+        name: Arrive
+        final: 0
+    StateDecide:     
+        VelComponent: 
+            type: zero
+        name: Decide
+        final: 0
+    StateHappy:
+        VelComponent: 
+            type: zero
+        name: Happy
+        final: 0
+    StateAngry:     
+        VelComponent: 
+            type: zero
+        name: Angry
+        final: 0
+
+    TransitionArrive:
+        from: Walk
+        to: Arrive    
+        Condition: 
+            type: goal_reached
+            distance: 0.4
+    TransitionDecide:
+        from: Arrive
+        to: Decide
+        Condition: 
+            type: timer
+            dist: u
+            min: 2
+            max: 4
+            seed: 5
+            per_agent: 1
+    TransitionHappyAngry:
+        from: Decide
+        Condition: 
+            type: auto
+        Target: 
+            type: prob
+            StateHappy: 
+                name: Happy
+                weight: 1.0
+            StateAngry:             
+                name: Angry
+                weight: 1.0
+    TransitionWalkHappy:
+        from: Happy
+        to: Walk
+        Condition: 
+            type: timer
+            dist: u
+            min: 4
+            max: 6
+            seed: 6
+            per_agent: 1
+    TransitionWalkAngry:
+        from: Angry
+        to: Walk
+        Condition: 
+            type: timer
+            dist: u
+            min: 1
+            max: 2
+            seed: 7
+            per_agent: 1

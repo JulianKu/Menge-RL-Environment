@@ -2,6 +2,9 @@ from xml.etree import ElementTree as ET
 import yaml
 import numpy as np
 from skimage import measure
+import cv2
+
+
 
 def xml_indentation(tree, level=0):
     """
@@ -64,11 +67,15 @@ def dict2etree(parent, dictionary):
     if isinstance(dictionary, dict):
         for key, val in dictionary.items():
             if key.startswith("AgentProfile"):
-                keystr = "AgentProfile"
+                key_str = "AgentProfile"
+            elif key.startswith("State"):
+                key_str = "State"
+            elif key.startswith("Transition"):
+                key_str = "Transition"
             else:
-                keystr = key
+                key_str = key
             if isinstance(val, dict):
-                subtree = ET.SubElement(parent, keystr)
+                subtree = ET.SubElement(parent, key_str)
                 dict2etree(subtree, dictionary[key])
             else:
                 parent.set(key, str(val))
@@ -110,8 +117,65 @@ def approximate_contours(contours, tolerance):
 
     :return:                list of approximated contours
     """
+
+    def cnt_length(cnt):
+        diff = cnt - np.roll(cnt, 1, axis=0)
+        return np.sum(np.sqrt(np.sum(diff**2, axis=1)))
+
     approx_contours = []
     for contour in contours:
-        approx_contours.append(measure.approximate_polygon(contour, tolerance))
+        # make sure contour is closed
+        if not np.array_equiv(contour[0], contour[-1]):
+            contour = np.append(contour, contour[0]).reshape(-1, 2)
+        # only polygons of higher order than triangles need to be approximated
+        if len(contour) > 3:
+            approx = measure.approximate_polygon(contour, tolerance)
+            # remove obstacles smaller than the tolerance
+            if cnt_length(approx) > tolerance:
+                approx_contours.append(approx)
+        # remove obstacles smaller than the tolerance
+        elif cnt_length(contour) > tolerance:
+            approx_contours.append(contour)
 
     return approx_contours
+
+
+def pixel2meter(coordinates, dimension, resolution):
+    """
+    transforms the pixel coordinate of a map image to the corresponding metric dimensions
+        NOTE: pixel coordinates start in the upper left corner with (0,0)
+              metric coordinates start in the lower left corner with (0,0)
+
+    :param coordinates: pixel coordinates (r, c)
+    :param dimension: dimensions of the image in total
+    :param resolution: resolution of the map [m] ( 1 pixel = ? meter )
+
+    :return: coordinates: metric coordinates (x, y)
+    """
+
+    x = coordinates[1] * resolution  # column * resolution
+    y = (dimension[0] - coordinates[0]) * resolution  # ( dim_r - r ) * resolution
+
+    return x, y
+
+
+def center2corner_pivot(box):
+    """
+    transformes a box, defined by x and y of the center, width, height and rotation angle (rotation around center)
+    into a box, defined by x and y of the lower corner, width, height and rotation angle (rotation around lower corner)
+
+    :param box: tuple of center (tuple x, y), size (tuple width, height) and angle
+
+    :return: box: tuple of pivot lower left corner (tuple x, y), size (tuple width, height) and angle
+    """
+
+    center, size, angle = box
+    center_x, center_y = center
+    width, height = size
+    cos_a = np.cos(angle * np.pi / 180)
+    sin_a = np.sin(angle * np.pi / 180)
+    pivot_x = center_x - cos_a * width/2 + sin_a * height/2
+    pivot_y = center_y - cos_a * height/2 - sin_a * width/2
+
+    return (pivot_x, pivot_y), (width, height), angle
+
