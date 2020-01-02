@@ -8,7 +8,7 @@ from sys import exit
 import matplotlib.pyplot as plt
 from skimage import measure, draw
 from utils import xml_indentation, read_yaml, dict2etree, remove_inner_contours, \
-    approximate_contours, pixel2meter, center2corner_pivot, triangulate_map
+    approximate_contours, pixel2meter, center2corner_pivot, get_triangles, triangulate_map
 from MengeUtils.navMesh import Node, Edge, Obstacle, NavMesh
 from MengeUtils.primitives import Vector2, Face
 
@@ -69,7 +69,8 @@ class MapParser:
                 self.output = {"base": output,
                                "scene": os.path.join(config_dir, filename + "S" + ext),
                                "behavior": os.path.join(config_dir, filename + "B" + ext),
-                               "view": os.path.join(config_dir, filename + "V" + ext)}
+                               "view": os.path.join(config_dir, filename + "V" + ext),
+                               "navmesh": os.path.join(config_dir, filename + "mesh.nav")}
             else:
                 config_dir = os.path.join(output, self.img_name)
                 if not os.path.isdir(config_dir):
@@ -78,7 +79,8 @@ class MapParser:
                 self.output = {"base": os.path.join(output, self.img_name + ".xml"),
                                "scene": os.path.join(config_dir, self.img_name + "S.xml"),
                                "behavior": os.path.join(config_dir, self.img_name + "B.xml"),
-                               "view": os.path.join(config_dir, self.img_name, self.img_name + "V.xml")}
+                               "view": os.path.join(config_dir, self.img_name, self.img_name + "V.xml"),
+                               "navmesh": os.path.join(config_dir, self.img_name, self.img_name + "mesh.nav")}
         else:
             # if nothing specified --> infer dir and filename from input image
             config_dir = os.path.join(self.img_dir, self.img_name)
@@ -87,7 +89,8 @@ class MapParser:
             self.output = {"base": os.path.join(self.img_dir, self.img_name + ".xml"),
                            "scene": os.path.join(config_dir, self.img_name + "S.xml"),
                            "behavior": os.path.join(config_dir, self.img_name + "B.xml"),
-                           "view": os.path.join(config_dir, self.img_name + "V.xml")}
+                           "view": os.path.join(config_dir, self.img_name + "V.xml"),
+                           "navmesh": os.path.join(config_dir, self.img_name + "mesh.nav")}
 
         dump_path = os.path.join(config_dir, 'images')
         if not os.path.isdir(dump_path):
@@ -106,6 +109,9 @@ class MapParser:
         self.eroded = None
         self.contours = None
         self.contours_img = None
+
+        # empty image for triangulation
+        self.triangle_img = None
 
         # initialize tolerance for contour approximation
         self.tolerance = None
@@ -237,11 +243,15 @@ class MapParser:
         :param image:   must be either 2D (w,h) or 3D (w,h,c) numpy array or one of then following identifiers (str):
                         "orig"             -- plot input image
                         "thresh"           -- plot input image but only keep dark pixel
-                        "dilation"         -- plot morphological dilation of the thresh image\n"
-                        "closing"          -- plot morphological closing of the dilated image\n"
-                        "erosion"         -- plot morphological erosion of the closed image\n"
-                        "contours"         -- plot extracted contours from input image\n"
-                        "contours_orig"    -- plot extracted contours over input image"
+                        "dilation"         -- plot morphological dilation of the thresh image
+                        "closing"          -- plot morphological closing of the dilated image
+                        "erosion"          -- plot morphological erosion of the closed image
+                        "contours"         -- plot extracted contours from input image
+                        "contours_orig"    -- plot extracted contours over input image
+                        "targets"          -- plot extracted targets from target image
+                        "targets_orig"     -- plot extracted targets over input image
+                        "triangles"        -- plot triangulated map from extracted contours
+                        "triangles_orig"   -- plot triangulated map over input image
         """
 
         if image is None:
@@ -321,6 +331,28 @@ class MapParser:
 
                     plt.imshow(tgt_image, alpha=alpha)
 
+                elif image == "triangles" or image == "triangles_orig":
+
+                    if image == "triangles":
+                        base_image = np.zeros_like(self.img, dtype=np.uint8)
+                        alpha = 1
+                    else:
+                        base_image = self.img.copy()
+                        alpha = 0.5
+
+                    plt.imshow(base_image, cmap='gray')
+
+                    base_image = cv2.cvtColor(base_image, cv2.COLOR_GRAY2RGB)
+
+                    triangles, vertices = get_triangles(self.contours)
+
+                    for triangle in vertices[triangles]:
+                        plt.plot(triangle[:, 1], triangle[:, 0], linewidth=1, alpha=alpha)
+                        rr, cc = draw.polygon_perimeter(triangle[:, 0], triangle[:, 1])
+                        base_image[rr, cc] = (1 - alpha) * base_image[rr, cc] \
+                                             + alpha * np.ones(base_image.shape)[rr, cc] * np.array([255, 0, 0])
+                    self.triangle_img = base_image
+
                 else:
                     raise ValueError("image must correspond to one of the following identifiers\n"
                                      "{:<15}".format("\"orig\"")
@@ -336,7 +368,16 @@ class MapParser:
                                        "{:<15}".format("\"contours\"")
                                      + " -- plot extracted contours from input image\n"
                                        "{:<15}".format("\"contours_orig\"")
-                                     + " -- plot extracted contours over input image")
+                                     + " -- plot extracted contours over input image\n"
+                                       "{:<15}".format("\"targets\"")
+                                     + " -- plot extracted targets from target image\n"
+                                       "{:<15}".format("\"targets_orig\"")
+                                     + " -- plot extracted targets over input image\n"
+                                       "{:<15}".format("\"triangles\"")
+                                     + " -- plot triangulated map from extracted contours\n"
+                                       "{:<15}".format("\"triangles_orig\"")
+                                     + " -- plot triangulated map over input image\n"
+                                     )
         else:
             raise ValueError("Either specify image directly via an array (np.ndarray) or via a name tag (str)")
 
@@ -530,8 +571,42 @@ class MapParser:
 
     def make_navmesh(self):
 
-        verts, edges, faces, elev = triangulate_map(self.dims, self.contours, 5 / self.resolution)
+        def processObstacles(obstacles, vertObstMap, vertNodeMap, navMesh):
+            """
+            Given a list of Obstacle instances, connects the obstacles into sequences such that each obstacle
+            points to the appropriate "next" obstacle.  Assigns obstacles to nodes based on vertex.
+            Finally, sets the obstacles to the navigation mesh.
+            """
 
+            # I'm assuming that the external edges form perfect, closed loops
+            #   That means if a vertex is incident to an obstacle, then it must be incident to two and only
+            #   two obstacles.  This tests that assumption
+            degrees = map(lambda x: len(x), vertObstMap.values())
+            assert (sum(map(lambda x: x % 2, degrees)) == 0)
+
+            # now connect them up
+            #   - this assumes that they are all wound properly
+            for vertID in vertObstMap.keys():
+                o0, o1 = vertObstMap[vertID]
+                obst0 = obstacles[o0]
+                obst1 = obstacles[o1]
+                if obst0.v0 == vertID:
+                    obst1.next = o0
+                else:
+                    obst0.next = o1
+                # The obstacle should be in the set of every node built on this vertex
+                for node in vertNodeMap[vertID]:
+                    node.addObstacle(o0)
+                    node.addObstacle(o1)
+
+            # all obstacles now have a "next" obstacle
+            assert (len(list(filter(lambda x: x.next == -1, obstacles))) == 0)
+
+            navMesh.obstacles = obstacles
+            # end of function
+
+        verts, edges, faces, elev = triangulate_map(self.dims, self.contours, 5 / self.resolution)
+        verts = np.transpose(pixel2meter(np.transpose(verts), self.dims, self.resolution))
         navMesh = NavMesh()
         navMesh.vertices = list(map(tuple, verts))
         vertNodeMap = {}
@@ -578,7 +653,7 @@ class MapParser:
                     raise ValueError("Face {} is too close to being co-linear".format(f))
             else:
                 # least squares
-                x, resid, rank, s = np.linalg.lstsq(M, b)
+                x, resid, rank, s = np.linalg.lstsq(M, b, rcond=None)
                 # TODO: Use rank and resid to confirm quality of answer:
                 #  rank will measure linear independence
                 #  resid will report planarity.
@@ -593,10 +668,68 @@ class MapParser:
             navMesh.addNode(node)
 
         print("Found %d edges" % (len(edges)))
-        internal = filter(lambda edge_idx: len(edgeMap[tuple(edges[edge_idx])]) > 1, edges)
-        external = filter(lambda edge_idx: len(edgeMap[tuple(edges[edge_idx])]) == 1, edges)
-        print("\tFound %d internal edges" % len(internal))
-        print("\tFound %d external edges" % len(external))
+        internal = filter(lambda edge: len(edgeMap[tuple(edge)]) > 1, edges)
+        external = filter(lambda edge: len(edgeMap[tuple(edge)]) == 1, edges)
+        # print("\tFound %d internal edges" % len(list(internal)))
+        # print("\tFound %d external edges" % len(list(external)))
+
+        # process the internal edges
+        for i, intern in enumerate(internal):
+            v0, v1 = intern
+            A, B = edgeMap[tuple(intern)]
+            a, aFace = A
+            b, bFace = B
+            na = navMesh.nodes[a]
+            na.addEdge(i)
+            nb = navMesh.nodes[b]
+            nb.addEdge(i)
+            edge = Edge()
+            edge.v0 = v0
+            edge.v1 = v1
+            # TODO: Do these two nodes require a particular relationship vis a vis
+            # the vertex ordering? I.e., should a be on the left and b on the right?
+            # is that even guaranteed?
+            edge.n0 = na
+            edge.n1 = nb
+            navMesh.addEdge(edge)
+
+        # process the external edges (obstacles)
+        # for each external edge, make sure the "winding" is opposite that of the face
+        obstacles = []
+        vertObstMap = {}  # mapping from vertex to the obstacles that are incident to the vertex
+        for i, extern in enumerate(external):
+            f, face = edgeMap[tuple(extern)][0]
+            v0, v1 = extern
+
+            oID = len(obstacles)
+            o = Obstacle()
+            o.n0 = navMesh.nodes[f]
+            if v0 in vertObstMap:
+                vertObstMap[v0].append(oID)
+            else:
+                vertObstMap[v0] = [oID]
+            if v1 in vertObstMap:
+                vertObstMap[v1].append(oID)
+            else:
+                vertObstMap[v1] = [oID]
+
+            i0 = face.verts.index(v0)
+            vCount = len(face.verts)
+            if face.verts[(i0 + 1) % vCount] == v1:
+                o.v0 = v0
+                o.v1 = v1
+            else:
+                o.v0 = v1
+                o.v1 = v0
+            obstacles.append(o)
+
+        processObstacles(obstacles, vertObstMap, vertNodeMap, navMesh)
+
+        print("Found %d obstacles" % len(obstacles))
+        #    for o in obstacles:
+        #        print '\t', ' '.join( map( lambda x: str(x), o ) )
+
+        navMesh.writeNavFile(self.output['navmesh'], ascii=True)
 
 
 if __name__ == '__main__':

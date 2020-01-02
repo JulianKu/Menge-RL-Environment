@@ -3,7 +3,7 @@ import yaml
 import numpy as np
 from skimage import measure
 import cv2
-
+import triangle as tr
 
 
 def xml_indentation(tree, level=0):
@@ -110,7 +110,7 @@ def remove_inner_contours(contours):
 
 def approximate_contours(contours, tolerance):
     """
-    approximates each contour within contours with a polygon given the specified tolerance
+    approximates each cnt within contours with a polygon given the specified tol
 
     :param contours:        list of contours specified as numpy arrays (n,2)
     :param tolerance:       float, maximum distance from original points of polygon to approximated polygonal chain
@@ -119,22 +119,51 @@ def approximate_contours(contours, tolerance):
     """
 
     def cnt_length(cnt):
+        """
+        get lenght of contour
+        """
         diff = cnt - np.roll(cnt, 1, axis=0)
-        return np.sum(np.sqrt(np.sum(diff**2, axis=1)))
+        return np.sum(np.linalg.norm(diff, axis=1))
+
+    def lineContour2rectangle(cnt, tol):
+        """
+        make two point contour line to (closed) rectangle contour
+        """
+        len_cnt = cnt_length(cnt)
+        # such that rectangle perimeter >= tol and each side at least 1 pixel long
+        offset = max(1, (tol - len_cnt) / 4)
+        # compute the normal vector to the contour line
+        vec_diff = cnt[1] - cnt[0]
+        vect_normal = np.array([vec_diff[1], -vec_diff[0]])
+        norm_vect_normal = vect_normal / np.linalg.norm(vect_normal)
+        # move contour point [0] and [1] each by +/- offset in direction of norm_vect_normal
+        offset_vect = offset * norm_vect_normal
+        # order points such that contour is still counter-clockwise and closed
+        cnt = np.array([cnt[0] + offset_vect, cnt[1] + offset_vect,
+                        cnt[1] - offset_vect, cnt[0] - offset_vect,
+                        cnt[0] + offset_vect])
+        return cnt
 
     approx_contours = []
     for contour in contours:
-        # make sure contour is closed
+        # make sure cnt is closed
         if not np.array_equiv(contour[0], contour[-1]):
             contour = np.append(contour, contour[0]).reshape(-1, 2)
         # only polygons of higher order than triangles need to be approximated
         if len(contour) > 3:
             approx = measure.approximate_polygon(contour, tolerance)
-            # remove obstacles smaller than the tolerance
+            # remove obstacles smaller than the tol
             if cnt_length(approx) > tolerance:
-                approx_contours.append(approx)
-        # remove obstacles smaller than the tolerance
-        elif cnt_length(contour) > tolerance:
+                if len(approx) > 3:
+                    approx_contours.append(approx)
+                else:
+                    # inflate contours that are only lines to rectangle
+                    contour = lineContour2rectangle(approx, tolerance)
+                    approx_contours.append(contour)
+        # if extracted contour only line --> filter too small contours
+        elif cnt_length(contour) >= tolerance / 2:
+            # inflate contours that are only lines to rectangle
+            contour = lineContour2rectangle(contour, tolerance)
             approx_contours.append(contour)
 
     return approx_contours
@@ -174,8 +203,8 @@ def center2corner_pivot(box):
     width, height = size
     cos_a = np.cos(angle * np.pi / 180)
     sin_a = np.sin(angle * np.pi / 180)
-    pivot_x = center_x - cos_a * width/2 + sin_a * height/2
-    pivot_y = center_y - cos_a * height/2 - sin_a * width/2
+    pivot_x = center_x - cos_a * width / 2 + sin_a * height / 2
+    pivot_y = center_y - cos_a * height / 2 - sin_a * width / 2
 
     return (pivot_x, pivot_y), (width, height), angle
 
@@ -205,6 +234,32 @@ def center2corner_pivot(box):
 #     return np.in1d(a, b, assume_unique)
 
 
+def get_triangles(contours):
+    vertices = []
+    segments = []
+    # holes = []
+
+    last_idx = 0
+    # extract vertices and edges (segments) from contours
+    for contour in contours:
+        vertices.extend(contour[:-1])
+        verts_in_cnt = len(contour) - 1
+        seg = [list(range(last_idx, last_idx + verts_in_cnt)),
+               list(range(last_idx + 1, last_idx + verts_in_cnt)) + [last_idx]]
+        segments.extend(list(map(list, zip(*seg))))
+
+        last_idx += verts_in_cnt
+
+    # define contour map as planar straight line graph (pslg) for triangulation
+    pslg = {'vertices': np.array(vertices), 'segments': np.array(segments)}  # , 'holes': []}
+
+    t = tr.triangulate(pslg, 'pc')
+
+    triangles = t['triangles']
+    vertices = t['vertices']
+    return triangles, vertices
+
+
 def triangulate_map(shape, contours, obstacle_height):
     """
 
@@ -221,28 +276,8 @@ def triangulate_map(shape, contours, obstacle_height):
         elevation: array of shape (num contour points,) defining the height (z-coord.) of each vertex
     """
 
-    rect = (0, 0, shape[0], shape[1])
-    subdiv = cv2.Subdiv2D(rect)
+    triangles, vertices = get_triangles(contours)
 
-    # create triangular grid of all contour points
-    for contour in contours:
-        for point in contour:
-            subdiv.insert(tuple(point))
-    triangle_list = subdiv.getTriangleList()
-
-    # each triangle corner makes a vertex
-    vertices = triangle_list.reshape((-1, 2))
-    # three vertices together make a triangle --> define triangle via the indices of its vertices
-    triangles = np.arange(len(vertices))
-    # make vertices unique
-    unique_vertices = np.unique(vertices, axis=0)
-    # replace vertex indices with the indices from the unique vertices
-    for idx, unique_vert in enumerate(unique_vertices):
-        same_vertices = np.argwhere(np.all(np.isin(vertices, unique_vert), axis=1))
-        triangles[same_vertices] = idx
-    vertices = unique_vertices
-    # reshape so that each row defines one face/triangle
-    triangles = triangles.reshape(-1, 3)
     # initialize elevation for each vertex to zero
     elevation = np.zeros(len(vertices))
     # connect every combination of the triangle's vertices to edges and add all three edges as a face
@@ -252,18 +287,24 @@ def triangulate_map(shape, contours, obstacle_height):
     for triangle in triangles:
         face = {'verts': [], 'edges': []}
         face_edges = []
-        triangle = np.sort(triangle)
+        # # make sure triangle winding is the same for all triangles:
+        # triangle_verts = vertices[triangle]
+        # triangle_verts = np.c_[triangle_verts, np.zeros(len(triangle_verts))]
+        # z = np.cross(triangle_verts[1] - triangle_verts[0], triangle_verts[2] - triangle_verts[0])[2]
+        # if z < 0:
+        #     triangle[1], triangle[2] = triangle[2], triangle[1]
+
         face['verts'] = triangle.tolist()
         triangle_edges = [[triangle[0], triangle[1]],
                           [triangle[1], triangle[2]],
-                          [triangle[0], triangle[2]]]
+                          [triangle[2], triangle[0]]]
         for edge in triangle_edges:
             if edges:
                 edge_idx = np.argwhere(np.all(np.isin(edges, edge), axis=1)).ravel().tolist()
             else:
                 edge_idx = []
             if not edge_idx:
-                edges.append(edge)
+                edges.append(sorted(edge))
                 edge_idx = [len(edges) - 1]
             face['edges'].extend(edge_idx)
             face_edges.extend(edge_idx)
@@ -284,7 +325,7 @@ def triangulate_map(shape, contours, obstacle_height):
         # append all unique contour points to the set of vertices
         vertices = np.append(vertices, contour[:-1], axis=0)
         # make those new contour points to obstacle height
-        elevation = np.append(elevation, [obstacle_height]*(len(contour)-1))
+        elevation = np.append(elevation, [obstacle_height] * (len(contour) - 1))
         ###
         # find indices of the vertices that belong to the contour
         for point, nextpoint in zip(contour[:-1], contour[1:]):
@@ -313,10 +354,14 @@ def triangulate_map(shape, contours, obstacle_height):
                     for i, edge in enumerate(faces[face]['edges']):
                         if edge == lower_edge:
                             faces[face]['edges'][i] = upper_edge
+                            break
+                    break
             face_edges = [lower_edge]
-            face_edges.extend(list(range(len(edges)-3, len(edges))))
-            face_verts = [*next_pnt_idx, *pnt_idx]
-            faces.append({'verts': face_verts, 'edges': face_edges})
+            face_edges.extend(list(range(len(edges) - 3, len(edges))))
+            # face_verts_idx = [*next_pnt_idx, *pnt_idx]
+            # face_verts = vertices[face_verts_idx]
+            face_verts_idx = [pnt_idx[0], next_pnt_idx[0], next_pnt_idx[1], pnt_idx[1]]
+            faces.append({'verts': face_verts_idx, 'edges': face_edges})
 
     edges = np.array(edges)
     return vertices, edges, faces, elevation

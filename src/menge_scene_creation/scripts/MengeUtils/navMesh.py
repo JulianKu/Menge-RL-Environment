@@ -116,9 +116,8 @@ class NavMesh:
         strings.  It respects the node groups."""
 
         def __init__(self, navMesh):
-            self.groupNames = navMesh.groups.keys()
+            self.groupNames = sorted(navMesh.groups.keys())
             assert (len(self.groupNames) > 0)
-            self.groupNames.sort()
             self.currGroupID = 0  # the current group to operate on
             self.currGroup = navMesh.groups[self.groupNames[0]]
             self.currNode = 0  # the next face in the group to return
@@ -127,7 +126,7 @@ class NavMesh:
         def __iter__(self):
             return self
 
-        def next(self):
+        def __next__(self):
             """Returns a group name and a node"""
             if self.currNode >= len(self.currGroup):
                 self.currGroupID += 1
