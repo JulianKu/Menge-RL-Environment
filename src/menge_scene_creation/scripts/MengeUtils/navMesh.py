@@ -1,4 +1,4 @@
-# The definitino of a navigation mesh
+# The definition of a navigation mesh
 
 import struct
 from MengeUtils.primitives import Vector2

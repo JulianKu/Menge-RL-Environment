@@ -121,6 +121,8 @@ class MapParser:
         self.scene_tree = None
         self.behavior_tree = None
         self.view_tree = None
+        # empty navmesh
+        self.navmesh = None
 
     def full_process(self, **kwargs):
         """
@@ -350,7 +352,7 @@ class MapParser:
                         plt.plot(triangle[:, 1], triangle[:, 0], linewidth=1, alpha=alpha)
                         rr, cc = draw.polygon_perimeter(triangle[:, 0], triangle[:, 1])
                         base_image[rr, cc] = (1 - alpha) * base_image[rr, cc] \
-                                             + alpha * np.ones(base_image.shape)[rr, cc] * np.array([255, 0, 0])
+                                             + alpha * np.ones(base_image.shape)[rr, cc] * np.array([0, 0, 255])
                     self.triangle_img = base_image
 
                 else:
@@ -668,10 +670,10 @@ class MapParser:
             navMesh.addNode(node)
 
         print("Found %d edges" % (len(edges)))
-        internal = filter(lambda edge: len(edgeMap[tuple(edge)]) > 1, edges)
-        external = filter(lambda edge: len(edgeMap[tuple(edge)]) == 1, edges)
-        # print("\tFound %d internal edges" % len(list(internal)))
-        # print("\tFound %d external edges" % len(list(external)))
+        internal = list(filter(lambda edge: len(edgeMap[tuple(edge)]) > 1, edges))
+        external = list(filter(lambda edge: len(edgeMap[tuple(edge)]) == 1, edges))
+        print("\tFound %d internal edges" % len(internal))
+        print("\tFound %d external edges" % len(external))
 
         # process the internal edges
         for i, intern in enumerate(internal):
@@ -728,6 +730,8 @@ class MapParser:
         print("Found %d obstacles" % len(obstacles))
         #    for o in obstacles:
         #        print '\t', ' '.join( map( lambda x: str(x), o ) )
+
+        self.navmesh = navMesh
 
         navMesh.writeNavFile(self.output['navmesh'], ascii=True)
 
