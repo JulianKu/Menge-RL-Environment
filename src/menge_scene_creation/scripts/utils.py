@@ -235,6 +235,15 @@ def center2corner_pivot(box):
 
 
 def get_triangles(contours):
+    """
+    uses triangle package to triangulate map span by contours
+    applies constrained Delaunay triangulation
+
+    :param contours: list of contours that are used as constraints for the triangulation
+    :return:
+        triangles: triangles defined via the indices for the corresponding vertices
+        vertices: x,y for each vertex
+    """
     vertices = []
     segments = []
     # holes = []
@@ -260,12 +269,10 @@ def get_triangles(contours):
     return triangles, vertices
 
 
-def triangulate_map(shape, contours, obstacle_height):
+def triangulate_map(contours):
     """
 
-    :param shape: (r, c) dimensions of the total map
     :param contours: list of arrays of shape (N,2), each array containing a contour of an obstacle with N points
-    :param obstacle_height: float defining the height of the obstacles
 
     :return: tuple (vertices, edges, faces, elevation)
         vertices: array of shape (num contour points, 2) containing all vertices (r,c) of the triangle mesh
@@ -278,14 +285,19 @@ def triangulate_map(shape, contours, obstacle_height):
 
     triangles, vertices = get_triangles(contours)
 
-    # initialize elevation for each vertex to zero
+    # set elevation for each vertex to zero
     elevation = np.zeros(len(vertices))
-    # connect every combination of the triangle's vertices to edges and add all three edges as a face
+
     edges = []
     faces = []
+    faces_verts = []
     faces_edges = []
     for triangle in triangles:
-        face = {'verts': [], 'edges': []}
+        # filter out triangles which are inside a contour
+        if np.any([measure.points_in_poly(vertices[triangle].mean(axis=0).reshape(1, 2), contour)[0]
+                   for contour in contours]):
+            continue
+
         face_edges = []
         # # make sure triangle winding is the same for all triangles:
         # triangle_verts = vertices[triangle]
@@ -294,76 +306,42 @@ def triangulate_map(shape, contours, obstacle_height):
         # if z < 0:
         #     triangle[1], triangle[2] = triangle[2], triangle[1]
 
-        face['verts'] = triangle.tolist()
+        faces_verts.append(triangle.tolist())
+
+        # connect every combination of the triangle's vertices to edges and add all three edges as a face
         triangle_edges = [[triangle[0], triangle[1]],
                           [triangle[1], triangle[2]],
                           [triangle[2], triangle[0]]]
         for edge in triangle_edges:
             if edges:
+                # to only have unique edges -> find edge in list of edges and return index
                 edge_idx = np.argwhere(np.all(np.isin(edges, edge), axis=1)).ravel().tolist()
             else:
                 edge_idx = []
+            # if edge is not yet in list of edges, add it
             if not edge_idx:
                 edges.append(sorted(edge))
                 edge_idx = [len(edges) - 1]
-            face['edges'].extend(edge_idx)
             face_edges.extend(edge_idx)
-        faces.append(face)
         faces_edges.append(face_edges)
 
-    # for each obstacle contour --> elevate to obstacle height
-    for cnt_idx, contour in enumerate(contours):
-        # find vertices that lie inside of contour
-        verts_in_contour_idx = measure.points_in_poly(vertices, contour)
-        # function also returns some points that lie on contour --> filter these points out
-        real_inner = np.logical_not(np.all(np.isin(vertices[verts_in_contour_idx], contour), axis=1))
-        verts_in_contour = vertices[verts_in_contour_idx][real_inner]
-        verts_in_contour_idx = np.all(np.isin(vertices, verts_in_contour), axis=1)
-        # if vertex is inside of contour --> set to obstacle height
-        elevation[verts_in_contour_idx] = obstacle_height
+    faces_verts = np.array(faces_verts)
+    faces_edges = np.array(faces_edges)
 
-        # append all unique contour points to the set of vertices
-        vertices = np.append(vertices, contour[:-1], axis=0)
-        # make those new contour points to obstacle height
-        elevation = np.append(elevation, [obstacle_height] * (len(contour) - 1))
+    # remove all vertices that became obsolete by skipping triangles that are inside contours
+    verts_obsolete = []
+    for v, vertex in enumerate(vertices):
+        if not np.any(np.isin(faces_verts, v)):
+            verts_obsolete.append(v)
+            # adjust vertex indices
+            faces_verts[np.greater(faces_verts, v)] -= 1
 
-        for point, nextpoint in zip(contour[:-1], contour[1:]):
-            # find indices of the vertices that belong to each edge of the contour
-            pnt_idx = np.argwhere(np.all(np.isin(vertices, point), axis=1)).ravel()
-            next_pnt_idx = np.argwhere(np.all(np.isin(vertices, nextpoint), axis=1)).ravel()
-            # each vertex should now appear twice: once for the lower edge and once for the upper edge
-            lower_edge = np.argwhere(np.all(np.isin(edges, [pnt_idx[0], next_pnt_idx[0]]), axis=1)).ravel()[0]
-            # to make faces for the exterior sides of an obstacle,
-            # the four vertices from lower and upper edge are connected to a rectangle by adding the missing edges
-            edges.append(sorted([next_pnt_idx[0], next_pnt_idx[1]]))
-            edges.append(sorted([pnt_idx[1], next_pnt_idx[1]]))
-            edges.append(sorted([pnt_idx[0], pnt_idx[1]]))
-            upper_edge = len(edges) - 2
-            # get the two faces that currently share the lower edge
-            # --> replace the one that lies within the contour with the upper edge
-            where_lower = np.argwhere(np.any(np.isin(faces_edges, lower_edge), axis=1)).ravel().tolist()
-            assert len(where_lower) <= 2, 'more than two faces share same edge'
-            for face in where_lower:
-                # check if center of face lies within contour
-                if measure.points_in_poly(vertices[faces[face]['verts']].mean(axis=0).reshape(1, 2), contour)[0]:
-                    # if so, face is inside obstacle--> replace lower edge with upper edge
-                    for i, edge in enumerate(faces[face]['edges']):
-                        if edge == lower_edge:
-                            faces[face]['edges'][i] = upper_edge
-                            break
-                    # also replace corresponding vertices
-                    for j, vertex in enumerate(faces[face]['verts']):
-                        if vertex == edges[lower_edge][0]:
-                            faces[face]['verts'][j] = edges[upper_edge][0]
-                        elif vertex == edges[lower_edge][1]:
-                            faces[face]['verts'][j] = edges[upper_edge][1]
-                    break
-            # face consists of the lower edge + the 3 edges added last to the list of edges
-            face_edges = [lower_edge]
-            face_edges.extend(list(range(len(edges) - 3, len(edges))))
-            # arrange vertices in counter clockwise order to make face
-            face_verts_idx = [pnt_idx[0], next_pnt_idx[0], next_pnt_idx[1], pnt_idx[1]]
-            faces.append({'verts': face_verts_idx, 'edges': face_edges})
+    vertices = np.delete(vertices, verts_obsolete, axis=0)
+
+    # each face is defined by its vertices and edges
+    for i, verts in enumerate(faces_verts):
+        face = {'verts': verts, 'edges': faces_edges[i]}
+        faces.append(face)
 
     edges = np.array(edges)
     return vertices, edges, faces, elevation

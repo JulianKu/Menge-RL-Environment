@@ -132,7 +132,7 @@ class MapParser:
         self.extract_target_areas()
         self.make_xml(**kwargs)
 
-    def extract_obstacles(self, r_d=15, r_c=20, r_e=10, tolerance=0.5):
+    def extract_obstacles(self, r_d=15, r_c=20, r_e=10, tolerance=0.5, **kwargs):
         """
         extract static obstacles from image by detecting lines/contours
 
@@ -349,6 +349,10 @@ class MapParser:
                     triangles, vertices = get_triangles(self.contours)
 
                     for triangle in vertices[triangles]:
+                        # skip triangles inside of contours
+                        if np.any([measure.points_in_poly(triangle.mean(axis=0).reshape(1, 2), contour)[0]
+                                   for contour in self.contours]):
+                            continue
                         plt.plot(triangle[:, 1], triangle[:, 0], linewidth=1, alpha=alpha)
                         rr, cc = draw.polygon_perimeter(triangle[:, 0], triangle[:, 1])
                         base_image[rr, cc] = (1 - alpha) * base_image[rr, cc] \
@@ -387,7 +391,7 @@ class MapParser:
         plt.yticks([])
         plt.show()
 
-    def make_xml(self, **kwargs):
+    def make_xml(self, make_navmesh=True, **kwargs):
         """
         compose a Menge compliant scenario out of four xml files (base, scene, behavior, view)
         """
@@ -397,10 +401,12 @@ class MapParser:
 
         self.make_base(**kwargs)
         self.make_scene(**kwargs)
-        self.make_behavior(**kwargs)
+        self.make_behavior(make_navmesh, **kwargs)
         self.make_view()
+        if make_navmesh:
+            self.make_navmesh()
 
-    def make_base(self, pedestrian_model="orca"):
+    def make_base(self, pedestrian_model="orca", **kwargs):
         """
         make a Menge simulator compliant xml file that specifies a scenario based on the scene, behavior and view file.
         """
@@ -423,7 +429,7 @@ class MapParser:
         # write to file
         self.base_tree.write(self.output['base'], xml_declaration=True, encoding='utf-8', method="xml")
 
-    def make_scene(self, num_agents=200):
+    def make_scene(self, num_agents=200, **kwargs):
         """
         make a Menge simulator compliant scene xml file out of the extracted contours and the scene config
         """
@@ -470,15 +476,13 @@ class MapParser:
 
         # make obstacle for every contour
         for contour in self.contours:
-            if not len(contour) <= 2:
-                if not len(contour) == 3 and cv2.arcLength(contour, True) > 0.3 / 0.05:
-                    obstacle = ET.SubElement(obstacle_set, "Obstacle")
-                    obstacle.set("closed", "1")
-                    for point in contour:
-                        obs_point_x, obs_point_y = pixel2meter(point, dims, res)
-                        vertex = ET.SubElement(obstacle, "Vertex")
-                        vertex.set("p_x", str(obs_point_x))
-                        vertex.set("p_y", str(obs_point_y))
+            obstacle = ET.SubElement(obstacle_set, "Obstacle")
+            obstacle.set("closed", "1")
+            for point in contour:
+                obs_point_x, obs_point_y = pixel2meter(point, dims, res)
+                vertex = ET.SubElement(obstacle, "Vertex")
+                vertex.set("p_x", str(obs_point_x))
+                vertex.set("p_y", str(obs_point_y))
 
         # prettify xml by indentation
         xml_indentation(root)
@@ -488,7 +492,7 @@ class MapParser:
         # write to file
         self.scene_tree.write(self.output['scene'], xml_declaration=True, encoding='utf-8', method="xml")
 
-    def make_behavior(self, num_goals=None):
+    def make_behavior(self, make_navmesh=False, num_goals=None, **kwargs):
         """
         make a Menge simulator compliant behavior xml file out of the behavior config
 
@@ -527,7 +531,7 @@ class MapParser:
                 # perform transformation from pivot = center to pivot = corner
                 tgt_box = center2corner_pivot(tgt_box)
 
-                goal.set("edge_idx", str(tgt_box[0][0]))
+                goal.set("x", str(tgt_box[0][0]))
                 goal.set("y", str(tgt_box[0][1]))
                 goal.set("width", str(tgt_box[1][0]))
                 goal.set("height", str(tgt_box[1][1]))
@@ -546,10 +550,15 @@ class MapParser:
                 goal.set("id", str(tgt_id))
                 goal.set("capacity", str(1000))
                 goal.set("type", "circle")
-                goal.set("edge_idx", str(tgt_x))
+                goal.set("x", str(tgt_x))
                 goal.set("y", str(tgt_y))
                 goal.set("radius", str(0.5))
                 goal.set("weight", str(1.0))
+
+        if make_navmesh:
+            self.config['BFSM']['StateWalk']['VelComponent'] = {'type': 'nav_mesh',
+                                                                'file_name': os.path.split(self.output['navmesh'])[1],
+                                                                'heading_threshold': '5'}
 
         dict2etree(root, self.config['BFSM'])
 
@@ -578,6 +587,8 @@ class MapParser:
             Given a list of Obstacle instances, connects the obstacles into sequences such that each obstacle
             points to the appropriate "next" obstacle.  Assigns obstacles to nodes based on vertex.
             Finally, sets the obstacles to the navigation mesh.
+
+            :return obstacles, although they are already set to the navMesh in place as well
             """
 
             # I'm assuming that the external edges form perfect, closed loops
@@ -589,31 +600,83 @@ class MapParser:
             # now connect them up
             #   - this assumes that they are all wound properly
             for vertID in vertObstMap.keys():
-                o0, o1 = vertObstMap[vertID]
-                obst0 = obstacles[o0]
-                obst1 = obstacles[o1]
-                if obst0.v0 == vertID:
-                    obst1.next = o0
+                obst_idx = vertObstMap[vertID]
+                obst_list = list(map(obstacles.__getitem__, obst_idx))
+                if len(obst_list) == 2:
+                    pairs = [(0, 1)]
                 else:
-                    obst0.next = o1
-                # The obstacle should be in the set of every node built on this vertex
-                for node in vertNodeMap[vertID]:
-                    node.addObstacle(o0)
-                    node.addObstacle(o1)
+                    assert len(obst_list) == 4, \
+                        "max 4 obstacles are allowed to intersect in one vertex with the current implementation"
+                    combinations = [[(0, 1), (2, 3)],
+                                    [(0, 2), (1, 3)],
+                                    [(0, 3), (1, 2)]]
+                    min_angle_sum = 2 * np.pi
+                    best_c = -1
+                    for c, combination in enumerate(combinations):
+                        angle_sum = 0
+                        for pair in combination:
+                            if not (obst_list[pair[0]].v0 == obst_list[pair[1]].v1
+                                    or obst_list[pair[0]].v1 == obst_list[pair[1]].v0):
+                                angle_sum = min_angle_sum
+                                break
+                            angle_sum += obst_list[pair[0]].get_angle(obst_list[pair[1]], navMesh.vertices)
+                        if angle_sum < min_angle_sum:
+                            best_c = c
+                            min_angle_sum = angle_sum
+                    pairs = combinations[best_c]
+
+                # shared = navMesh.vertices[vertID]  # vertex that is shared between obstacles
+                for o0, o1 in pairs:
+                    obst0, obst1 = obst_list[o0], obst_list[o1]
+                    if obst0.v0 == vertID:
+                        obst1.next = obst_idx[o0]
+                        # # obst_second is the vertex from that obstacle edge that is not shared between o0 and o1
+                        # obst0_second = navMesh.vertices[obst0.v1]
+                        # obst1_second = navMesh.vertices[obst1.v0]
+                    else:
+                        obst0.next = obst_idx[o1]
+                        # # obst_second is the vertex from that obstacle edge that is not shared between o0 and o1
+                        # obst0_second = navMesh.vertices[obst0.v0]
+                        # obst1_second = navMesh.vertices[obst1.v1]
+
+                    for node in vertNodeMap[vertID]:
+                        node.addObstacle(obst_idx[o0])
+                        node.addObstacle(obst_idx[o1])
+
+                    # if len(pairs) == 1:
+                    #     # The obstacle should be in the set of every node built on this vertex
+                    #     for node in vertNodeMap[vertID]:
+                    #         node.addObstacle(obst_idx[o0])
+                    #         node.addObstacle(obst_idx[o1])
+                    # else:
+                    #     # Obstacle should only be in set of nodes that lie between the two obstacles
+                    #     # position determines the side on which a point (p_x, p_y) lies from that obstacle edge
+                    #     position_o0 = lambda p_x, p_y: np.sign((obst0_second[0] - shared[0]) * (p_y - shared[1])
+                    #                                            - (obst0_second[1] - shared[1]) * (p_x - shared[0]))
+                    #     position_o1 = lambda p_x, p_y: np.sign((obst1_second[0] - shared[0]) * (p_y - shared[1])
+                    #                                            - (obst1_second[1] - shared[1]) * (p_x - shared[0]))
+                    #     for node in vertNodeMap[vertID]:
+                    #         # determine whether node lies between obstacle 0 and 1
+                    #         # node lies between if center is on different sides for both obstacles edges
+                    #         between = (position_o0(node.center.x, node.center.y)
+                    #                    * position_o1(node.center.x, node.center.y) == -1)
+                    #         if between:
+                    #             node.addObstacle(obst_idx[o0])
+                    #             node.addObstacle(obst_idx[o1])
 
             # all obstacles now have a "next" obstacle
             assert (len(list(filter(lambda x: x.next == -1, obstacles))) == 0)
 
             navMesh.obstacles = obstacles
-            # end of function
 
-        verts, edges, faces, elev = triangulate_map(self.dims, self.contours, 5 / self.resolution)
+            return obstacles
+
+        verts, edges, faces, elev = triangulate_map(self.contours)
         verts = np.transpose(pixel2meter(np.transpose(verts), self.dims, self.resolution))
         navMesh = NavMesh()
         navMesh.vertices = list(map(tuple, verts))
         vertNodeMap = {}
         edgeMap = {}
-        nodes = []
 
         for f, face in enumerate(faces):
             face_verts = face['verts']
@@ -622,13 +685,14 @@ class MapParser:
             node = Node()
             faceObj = Face(v=list(face_verts))
             node.poly = faceObj
+            # A,B,C describe plane on which the node's polygon lies (A*x + B*y + C = z)
             A = B = C = 0.0
             M = []
             b = []
             center_2d = Vector2(0, 0)
 
             for vert_idx in face_verts:
-                if not vert_idx in vertNodeMap:
+                if vert_idx not in vertNodeMap:
                     vertNodeMap[vert_idx] = [node]
                 else:
                     vertNodeMap[vert_idx].append(node)
@@ -639,7 +703,7 @@ class MapParser:
 
             for edge_idx in face_edges:
                 edge = tuple(edges[edge_idx])
-                if not edge in edgeMap:
+                if edge not in edgeMap:
                     edgeMap[edge] = [(f, faceObj)]
                 elif len(edgeMap[edge]) > 1:
                     raise AttributeError("Edge %s has too many incident faces" % edge_idx)
@@ -650,16 +714,18 @@ class MapParser:
             if num_verts == 3:
                 # solve explicitly
                 try:
-                    A, B, C = np.linalg.solve(M, b)
+                    sol = np.linalg.solve(M, b)
+                    # make integer if solution is in whole numbers
+                    A, B, C = tuple([int(i) for i in sol if int(i) == i])
                 except np.linalg.linalg.LinAlgError:
                     raise ValueError("Face {} is too close to being co-linear".format(f))
             else:
                 # least squares
-                x, resid, rank, s = np.linalg.lstsq(M, b, rcond=None)
+                sol, resid, rank, s = np.linalg.lstsq(M, b, rcond=None)
                 # TODO: Use rank and resid to confirm quality of answer:
                 #  rank will measure linear independence
                 #  resid will report planarity.
-                A, B, C = x
+                A, B, C = tuple([int(i) for i in sol if int(i) == i])
 
             # TODO: This isn't necessarily normalized. If b proves to be the zero vector, then
             # I'm looking at the vector that is the nullspace of the matrix and that's true to
@@ -748,11 +814,11 @@ if __name__ == '__main__':
 
     try:
         if args.o:
-            img_parser = MapParser(args.map_file, args.resolution, args.o)
+            img_parser = MapParser(args.map_file, args.resolution, "config/scene.yaml", args.o)
         else:
-            img_parser = MapParser(args.map_file, args.resolution)
+            img_parser = MapParser(args.map_file, args.resolution, "config/scene.yaml")
 
-        img_parser.full_process()
+        img_parser.full_process(make_navmesh=True)
 
     except (AssertionError, ValueError) as e:
         print("ERROR")

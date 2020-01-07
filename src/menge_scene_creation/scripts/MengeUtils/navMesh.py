@@ -2,6 +2,7 @@
 
 import struct
 from MengeUtils.primitives import Vector2
+from numpy import array, arctan2, pi
 
 
 class Node:
@@ -107,6 +108,36 @@ class Obstacle:
         # TODO: Enforce fixed endianness
         return struct.pack('iiii', self.v0, self.v1, nodeMap[self.n0], self.next)
 
+    def get_angle(self, other_obstacle, vertices):
+        """
+        compute angle between this and another adjacent obstacle (both obstacles sharing one vertex)
+        vertices maps the vertex index to the actual vertex
+        """
+        # make sure both vectors point away from shared vertex between edges
+        if self.v1 == other_obstacle.v0:
+            o0v0 = vertices[self.v1]
+            o0v1 = vertices[self.v0]
+            o1v0 = vertices[other_obstacle.v0]
+            o1v1 = vertices[other_obstacle.v1]
+        elif self.v0 == other_obstacle.v1:
+            o0v0 = vertices[self.v0]
+            o0v1 = vertices[self.v1]
+            o1v0 = vertices[other_obstacle.v1]
+            o1v1 = vertices[other_obstacle.v0]
+        else:
+            raise ValueError("Obstacles need to be adjacent so that they share one vertex")
+        vect_o0 = array(o0v1) - array(o0v0)
+        vect_o1 = array(o1v1) - array(o1v0)
+
+        angle = arctan2(vect_o1[1], vect_o1[0]) - arctan2(vect_o0[1], vect_o0[0])
+        # normalize to range -pi, pi
+        if angle >= pi:
+            angle -= 2 * pi
+        elif angle <= - pi:
+            angle += 2 * pi
+        # return absolute angle
+        return abs(angle)
+
 
 class NavMesh:
     """A simple navigation mesh"""
@@ -181,7 +212,7 @@ class NavMesh:
 
     def writeNavFile(self, fileName, ascii=True):
         """Outputs the navigation mesh into a .nav file"""
-        if (ascii):
+        if ascii:
             if not fileName.lower().endswith('.nav'):
                 fileName += '.nav'
             self.writeNavFileAscii(fileName)
@@ -216,6 +247,7 @@ class NavMesh:
                 f.write('\n%s' % group)
                 f.write('\n%d' % (len(self.groups[group])))
                 currGrp = group
+            # nodes
             f.write('\n%s\n' % (node.asciiString('\t')))
 
         f.close()
@@ -224,22 +256,22 @@ class NavMesh:
         """Writes the ascii navigation mesh file"""
         # TODO: Make this valid
         pass
-##        f = open( fileName, 'wb' )
-##        # vertices
-##        f.write( struct.pack('i', len( self.vertices ) ) )
-##        for x,y in self.vertices:
-##            f.write( struct.pack('ff', x, y ) )
-##        # edges
-##        f.write( struct.pack('i', len( self.edges ) ) )
-##        for e in self.edges:
-##            f.write( e.binaryString() )
-##        # nodes
-##        f.write( struct.pack('i', len( self.nodes ) ) )
-##        for n in self.nodes:
-##            f.write( n.binaryString() )            
-##        # obstacles
-##        f.write( struct.pack( 'i', len( self.obstacles ) ) )
-##        for o in self.obstacles:
-##            f.write( struct.pack('i', len( o ) ) )
-##            f.write( ''.join( map( lambda x: struct.pack( 'i',x ), o ) ) )
-##        f.close()
+#        f = open( fileName, 'wb' )
+#        # vertices
+#        f.write( struct.pack('i', len( self.vertices ) ) )
+#        for x,y in self.vertices:
+#            f.write( struct.pack('ff', x, y ) )
+#        # edges
+#        f.write( struct.pack('i', len( self.edges ) ) )
+#        for e in self.edges:
+#            f.write( e.binaryString() )
+#        # nodes
+#        f.write( struct.pack('i', len( self.nodes ) ) )
+#        for n in self.nodes:
+#            f.write( n.binaryString() )
+#        # obstacles
+#        f.write( struct.pack( 'i', len( self.obstacles ) ) )
+#        for o in self.obstacles:
+#            f.write( struct.pack('i', len( o ) ) )
+#            f.write( ''.join( map( lambda x: struct.pack( 'i',x ), o ) ) )
+#        f.close()
