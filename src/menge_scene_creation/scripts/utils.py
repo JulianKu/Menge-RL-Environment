@@ -234,19 +234,20 @@ def center2corner_pivot(box):
 #     return np.in1d(a, b, assume_unique)
 
 
-def get_triangles(contours):
+def get_triangles(contours, make_holes=True):
     """
     uses triangle package to triangulate map span by contours
     applies constrained Delaunay triangulation
 
     :param contours: list of contours that are used as constraints for the triangulation
+    :param make_holes: if True, does not triangulate inside each contour
     :return:
         triangles: triangles defined via the indices for the corresponding vertices
         vertices: x,y for each vertex
     """
     vertices = []
     segments = []
-    # holes = []
+    holes = []
 
     last_idx = 0
     # extract vertices and edges (segments) from contours
@@ -259,8 +260,32 @@ def get_triangles(contours):
 
         last_idx += verts_in_cnt
 
+        if make_holes:
+            # find point that lies inside of contour
+
+            # first check whether mean of contour points lies within contour
+            center = contour.mean(axis=0)
+            in_contour = measure.points_in_poly(center.reshape(1, 2), contour)[0]
+            idx = 0
+            while not in_contour:
+                # form triangle of 3 consecutive contour points
+                part_triangle = contour[idx:idx+3]
+                # if triangle lies within contour --> center point is within contour
+                center = part_triangle.mean(axis=0)
+                # check if center lies within contour
+                in_contour = measure.points_in_poly(center.reshape(1, 2), contour)[0]
+                idx += 1
+                if idx > len(contour):
+                    raise ValueError("Unable to find point in contour")
+            # for each contour, append point that lies within it
+            holes.append(center)
+
     # define contour map as planar straight line graph (pslg) for triangulation
-    pslg = {'vertices': np.array(vertices), 'segments': np.array(segments)}  # , 'holes': []}
+    pslg = {'vertices': np.array(vertices), 'segments': np.array(segments)}
+
+    # add holes if required
+    if make_holes:
+        pslg['holes'] = np.array(holes)
 
     t = tr.triangulate(pslg, 'pc')
 
@@ -293,10 +318,6 @@ def triangulate_map(contours):
     faces_verts = []
     faces_edges = []
     for triangle in triangles:
-        # filter out triangles which are inside a contour
-        if np.any([measure.points_in_poly(vertices[triangle].mean(axis=0).reshape(1, 2), contour)[0]
-                   for contour in contours]):
-            continue
 
         face_edges = []
         # # make sure triangle winding is the same for all triangles:
