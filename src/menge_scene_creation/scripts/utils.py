@@ -310,13 +310,7 @@ def triangulate_map(contours):
 
     triangles, vertices = get_triangles(contours)
 
-    # set elevation for each vertex to zero
-    elevation = np.zeros(len(vertices))
-
-    edges = []
     faces = []
-    faces_verts = []
-    faces_edges = []
     for triangle in triangles:
 
         face_edges = []
@@ -327,42 +321,8 @@ def triangulate_map(contours):
         # if z < 0:
         #     triangle[1], triangle[2] = triangle[2], triangle[1]
 
-        faces_verts.append(triangle.tolist())
+        faces.append(triangle.tolist())
 
-        # connect every combination of the triangle's vertices to edges and add all three edges as a face
-        triangle_edges = [[triangle[0], triangle[1]],
-                          [triangle[1], triangle[2]],
-                          [triangle[2], triangle[0]]]
-        for edge in triangle_edges:
-            if edges:
-                # to only have unique edges -> find edge in list of edges and return index
-                edge_idx = np.argwhere(np.all(np.isin(edges, edge), axis=1)).ravel().tolist()
-            else:
-                edge_idx = []
-            # if edge is not yet in list of edges, add it
-            if not edge_idx:
-                edges.append(sorted(edge))
-                edge_idx = [len(edges) - 1]
-            face_edges.extend(edge_idx)
-        faces_edges.append(face_edges)
+    faces = np.array(faces)
 
-    faces_verts = np.array(faces_verts)
-    faces_edges = np.array(faces_edges)
-
-    # remove all vertices that became obsolete by skipping triangles that are inside contours
-    verts_obsolete = []
-    for v, vertex in enumerate(vertices):
-        if not np.any(np.isin(faces_verts, v)):
-            verts_obsolete.append(v)
-            # adjust vertex indices
-            faces_verts[np.greater(faces_verts, v)] -= 1
-
-    vertices = np.delete(vertices, verts_obsolete, axis=0)
-
-    # each face is defined by its vertices and edges
-    for i, verts in enumerate(faces_verts):
-        face = {'verts': verts, 'edges': faces_edges[i]}
-        faces.append(face)
-
-    edges = np.array(edges)
-    return vertices, edges, faces, elevation
+    return vertices, faces

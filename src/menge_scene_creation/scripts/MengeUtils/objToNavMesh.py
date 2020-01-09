@@ -221,18 +221,83 @@ def processObstacles(obstacles, vertObstMap, vertNodeMap, navMesh):
 
     # now connect them up
     #   - this assumes that they are all wound properly
+    # for vertID in vertObstMap.keys():
+    #     o0, o1 = vertObstMap[vertID]
+    #     obst0 = obstacles[o0]
+    #     obst1 = obstacles[o1]
+    #     if obst0.v0 == vertID:
+    #         obst1.next = o0
+    #     else:
+    #         obst0.next = o1
+    #     # The obstacle should be in the set of every node built on this vertex
+    #     for node in vertNodeMap[vertID]:
+    #         node.addObstacle(o0)
+    #         node.addObstacle(o1)
+
     for vertID in vertObstMap.keys():
-        o0, o1 = vertObstMap[vertID]
-        obst0 = obstacles[o0]
-        obst1 = obstacles[o1]
-        if obst0.v0 == vertID:
-            obst1.next = o0
+        obst_idx = vertObstMap[vertID]
+        obst_list = list(map(obstacles.__getitem__, obst_idx))
+        if len(obst_list) == 2:
+            pairs = [(0, 1)]
         else:
-            obst0.next = o1
-        # The obstacle should be in the set of every node built on this vertex
-        for node in vertNodeMap[vertID]:
-            node.addObstacle(o0)
-            node.addObstacle(o1)
+            assert len(obst_list) == 4, \
+                "max 4 obstacles are allowed to intersect in one vertex with the current implementation"
+            combinations = [[(0, 1), (2, 3)],
+                            [(0, 2), (1, 3)],
+                            [(0, 3), (1, 2)]]
+            min_angle_sum = 2 * np.pi
+            best_c = -1
+            for c, combination in enumerate(combinations):
+                angle_sum = 0
+                for pair in combination:
+                    if not (obst_list[pair[0]].v0 == obst_list[pair[1]].v1
+                            or obst_list[pair[0]].v1 == obst_list[pair[1]].v0):
+                        angle_sum = min_angle_sum
+                        break
+                    angle_sum += obst_list[pair[0]].get_angle(obst_list[pair[1]], navMesh.vertices)
+                if angle_sum < min_angle_sum:
+                    best_c = c
+                    min_angle_sum = angle_sum
+            pairs = combinations[best_c]
+
+        # shared = navMesh.vertices[vertID]  # vertex that is shared between obstacles
+        for o0, o1 in pairs:
+            obst0, obst1 = obst_list[o0], obst_list[o1]
+            if obst0.v0 == vertID:
+                obst1.next = obst_idx[o0]
+                # # obst_second is the vertex from that obstacle edge that is not shared between o0 and o1
+                # obst0_second = navMesh.vertices[obst0.v1]
+                # obst1_second = navMesh.vertices[obst1.v0]
+            else:
+                obst0.next = obst_idx[o1]
+                # # obst_second is the vertex from that obstacle edge that is not shared between o0 and o1
+                # obst0_second = navMesh.vertices[obst0.v0]
+                # obst1_second = navMesh.vertices[obst1.v1]
+
+            for node in vertNodeMap[vertID]:
+                node.addObstacle(obst_idx[o0])
+                node.addObstacle(obst_idx[o1])
+
+            # if len(pairs) == 1:
+            #     # The obstacle should be in the set of every node built on this vertex
+            #     for node in vertNodeMap[vertID]:
+            #         node.addObstacle(obst_idx[o0])
+            #         node.addObstacle(obst_idx[o1])
+            # else:
+            #     # Obstacle should only be in set of nodes that lie between the two obstacles
+            #     # position determines the side on which a point (p_x, p_y) lies from that obstacle edge
+            #     position_o0 = lambda p_x, p_y: np.sign((obst0_second[0] - shared[0]) * (p_y - shared[1])
+            #                                            - (obst0_second[1] - shared[1]) * (p_x - shared[0]))
+            #     position_o1 = lambda p_x, p_y: np.sign((obst1_second[0] - shared[0]) * (p_y - shared[1])
+            #                                            - (obst1_second[1] - shared[1]) * (p_x - shared[0]))
+            #     for node in vertNodeMap[vertID]:
+            #         # determine whether node lies between obstacle 0 and 1
+            #         # node lies between if center is on different sides for both obstacles edges
+            #         between = (position_o0(node.center.x, node.center.y)
+            #                    * position_o1(node.center.x, node.center.y) == -1)
+            #         if between:
+            #             node.addObstacle(obst_idx[o0])
+            #             node.addObstacle(obst_idx[o1])
 
     # all obstacles now have a "next" obstacle
     assert (len(list(filter(lambda x: x.next == -1, obstacles))) == 0)
@@ -254,7 +319,7 @@ def projectVertices(vertexList, y_up):
     return verts
 
 
-def buildNavMesh(objFile, y_up, vertex_distance):
+def buildNavMesh(objFile, y_up):
     """Given an ObjFile object, constructs the navigation mesh.writeNavFile
 
     The nodes will be grouped according to the obj face groups.
@@ -264,13 +329,7 @@ def buildNavMesh(objFile, y_up, vertex_distance):
                             is defined on the xz-plane with elevation as y(x, z). If
                             False, <0, 0, 1> is the up vector and the 2D polygon is on the
                             yz-plane with z(x, y).
-    @param vertex_distance  A tolerance communicating a lower bound on the expected
-                            distances between all obj mesh vertices. If vertices are
-                            found this distance or nearer, a warning will be issued.
     """
-
-    # if not analyze_obj(objFile, vertex_distance):
-    #     sys.exit(1)
 
     def extract_2d(v):
         if y_up:
@@ -433,10 +492,6 @@ def main():
                                              "will automatically be added (.nav for ascii, .nbv for binary).")
     parser.add_option('-u', '--up', dest='up', default='Y', action='store',
                       help='The direction of the up vector -- should be either Y or Z')
-    parser.add_option('-d', '--distance', dest='vertex_distance', action='store',
-                      type=float, default=1e-5,
-                      help='Vertices are expected to be farther apart than this value. '
-                           'Must be a positive number.')
     parser.add_option("-b", "--binary",
                       help="Determines if the navigation mesh file is saved as a binary "
                             "(by default, it saves an ascii file.",
@@ -452,12 +507,6 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    if options.vertex_distance <= 0.0:
-        print('\nError: The vertex distance value must be strictly positive. Found {}\n'
-              .format(options.vertex_distance))
-        parser.print_help()
-        sys.exit(1)
-
     objFileName = options.objFileName
 
     if objFileName == '':
@@ -469,7 +518,7 @@ def main():
     gCount, fCount = obj.faceStats()
     print("\tFile has %d faces" % fCount)
 
-    mesh = buildNavMesh(obj, y_up, options.vertex_distance)
+    mesh = buildNavMesh(obj, y_up)
 
     outName = options.navFileName
     #    ascii = options.outAscii

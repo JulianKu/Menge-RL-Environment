@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 from skimage import measure, draw
 from utils import xml_indentation, read_yaml, dict2etree, remove_inner_contours, \
     approximate_contours, pixel2meter, center2corner_pivot, get_triangles, triangulate_map
-from MengeUtils.navMesh import Node, Edge, Obstacle, NavMesh
-from MengeUtils.primitives import Vector2, Face
+from MengeUtils.objToNavMesh import buildNavMesh
+from MengeUtils.ObjReader import ObjFile
 
 
 class MapParser:
@@ -582,224 +582,32 @@ class MapParser:
 
     def make_navmesh(self):
 
-        def processObstacles(obstacles, vertObstMap, vertNodeMap, navMesh):
-            """
-            Given a list of Obstacle instances, connects the obstacles into sequences such that each obstacle
-            points to the appropriate "next" obstacle.  Assigns obstacles to nodes based on vertex.
-            Finally, sets the obstacles to the navigation mesh.
-
-            :return obstacles, although they are already set to the navMesh in place as well
-            """
-
-            # I'm assuming that the external edges form perfect, closed loops
-            #   That means if a vertex is incident to an obstacle, then it must be incident to two and only
-            #   two obstacles.  This tests that assumption
-            degrees = map(lambda x: len(x), vertObstMap.values())
-            assert (sum(map(lambda x: x % 2, degrees)) == 0)
-
-            # now connect them up
-            #   - this assumes that they are all wound properly
-            for vertID in vertObstMap.keys():
-                obst_idx = vertObstMap[vertID]
-                obst_list = list(map(obstacles.__getitem__, obst_idx))
-                if len(obst_list) == 2:
-                    pairs = [(0, 1)]
-                else:
-                    assert len(obst_list) == 4, \
-                        "max 4 obstacles are allowed to intersect in one vertex with the current implementation"
-                    combinations = [[(0, 1), (2, 3)],
-                                    [(0, 2), (1, 3)],
-                                    [(0, 3), (1, 2)]]
-                    min_angle_sum = 2 * np.pi
-                    best_c = -1
-                    for c, combination in enumerate(combinations):
-                        angle_sum = 0
-                        for pair in combination:
-                            if not (obst_list[pair[0]].v0 == obst_list[pair[1]].v1
-                                    or obst_list[pair[0]].v1 == obst_list[pair[1]].v0):
-                                angle_sum = min_angle_sum
-                                break
-                            angle_sum += obst_list[pair[0]].get_angle(obst_list[pair[1]], navMesh.vertices)
-                        if angle_sum < min_angle_sum:
-                            best_c = c
-                            min_angle_sum = angle_sum
-                    pairs = combinations[best_c]
-
-                # shared = navMesh.vertices[vertID]  # vertex that is shared between obstacles
-                for o0, o1 in pairs:
-                    obst0, obst1 = obst_list[o0], obst_list[o1]
-                    if obst0.v0 == vertID:
-                        obst1.next = obst_idx[o0]
-                        # # obst_second is the vertex from that obstacle edge that is not shared between o0 and o1
-                        # obst0_second = navMesh.vertices[obst0.v1]
-                        # obst1_second = navMesh.vertices[obst1.v0]
-                    else:
-                        obst0.next = obst_idx[o1]
-                        # # obst_second is the vertex from that obstacle edge that is not shared between o0 and o1
-                        # obst0_second = navMesh.vertices[obst0.v0]
-                        # obst1_second = navMesh.vertices[obst1.v1]
-
-                    for node in vertNodeMap[vertID]:
-                        node.addObstacle(obst_idx[o0])
-                        node.addObstacle(obst_idx[o1])
-
-                    # if len(pairs) == 1:
-                    #     # The obstacle should be in the set of every node built on this vertex
-                    #     for node in vertNodeMap[vertID]:
-                    #         node.addObstacle(obst_idx[o0])
-                    #         node.addObstacle(obst_idx[o1])
-                    # else:
-                    #     # Obstacle should only be in set of nodes that lie between the two obstacles
-                    #     # position determines the side on which a point (p_x, p_y) lies from that obstacle edge
-                    #     position_o0 = lambda p_x, p_y: np.sign((obst0_second[0] - shared[0]) * (p_y - shared[1])
-                    #                                            - (obst0_second[1] - shared[1]) * (p_x - shared[0]))
-                    #     position_o1 = lambda p_x, p_y: np.sign((obst1_second[0] - shared[0]) * (p_y - shared[1])
-                    #                                            - (obst1_second[1] - shared[1]) * (p_x - shared[0]))
-                    #     for node in vertNodeMap[vertID]:
-                    #         # determine whether node lies between obstacle 0 and 1
-                    #         # node lies between if center is on different sides for both obstacles edges
-                    #         between = (position_o0(node.center.x, node.center.y)
-                    #                    * position_o1(node.center.x, node.center.y) == -1)
-                    #         if between:
-                    #             node.addObstacle(obst_idx[o0])
-                    #             node.addObstacle(obst_idx[o1])
-
-            # all obstacles now have a "next" obstacle
-            assert (len(list(filter(lambda x: x.next == -1, obstacles))) == 0)
-
-            navMesh.obstacles = obstacles
-
-            return obstacles
-
-        verts, edges, faces, elev = triangulate_map(self.contours)
+        verts, faces = triangulate_map(self.contours)
         verts = np.transpose(pixel2meter(np.transpose(verts), self.dims, self.resolution))
-        navMesh = NavMesh()
-        navMesh.vertices = list(map(tuple, verts))
-        vertNodeMap = {}
-        edgeMap = {}
+        print("\t {:d} faces have been extracted from the map".format(len(faces)))
 
-        for f, face in enumerate(faces):
-            face_verts = face['verts']
-            face_edges = face['edges']
-            num_verts = len(face_verts)
-            node = Node()
-            faceObj = Face(v=list(face_verts))
-            node.poly = faceObj
-            # A,B,C describe plane on which the node's polygon lies (A*x + B*y + C = z)
-            A = B = C = 0.0
-            M = []
-            b = []
-            center_2d = Vector2(0, 0)
+        obj_file = os.path.splitext(self.output['navmesh'])[0] + '.obj'
+        with open(obj_file, 'w') as write_file:
+            write_file.write("# OBJ file for %s\n" % self.img_name)
+            write_file.write("\n")
+            write_file.write("# Vertices\n")
+            for vert in verts:
+                write_file.write("v {0:.4f} {1:.4f} {2:.4f}\n".format(vert[0], vert[1], 0))
+            write_file.write("\n")
+            write_file.write("# Normal\n")
+            write_file.write("vn {0:.4f} {1:.4f} {2:.4f}\n".format(0, 0, 1))
+            write_file.write("\n")
+            write_file.write("# Faces\n")
+            for face in faces:
+                write_file.write("f {0:d}//1 {1:d}//1 {2:d}//1\n".format(face[0] + 1, face[1] + 1, face[2] + 1))
 
-            for vert_idx in face_verts:
-                if vert_idx not in vertNodeMap:
-                    vertNodeMap[vert_idx] = [node]
-                else:
-                    vertNodeMap[vert_idx].append(node)
-                vert = verts[vert_idx]
-                center_2d += Vector2(*vert)
-                M.append((*vert, 1))
-                b.append((elev[vert_idx]))
+        obj = ObjFile(obj_file)
+        gCount, fCount = obj.faceStats()
+        print("\tObj File has {:d} faces".format(fCount))
 
-            for edge_idx in face_edges:
-                edge = tuple(edges[edge_idx])
-                if edge not in edgeMap:
-                    edgeMap[edge] = [(f, faceObj)]
-                elif len(edgeMap[edge]) > 1:
-                    raise AttributeError("Edge %s has too many incident faces" % edge_idx)
-                else:
-                    edgeMap[edge].append((f, faceObj))
-            node.center = center_2d / num_verts
+        mesh = buildNavMesh(obj, y_up=False)
 
-            if num_verts == 3:
-                # solve explicitly
-                try:
-                    sol = np.linalg.solve(M, b)
-                    # make integer if solution is in whole numbers
-                    A, B, C = tuple([int(i) for i in sol if int(i) == i])
-                except np.linalg.linalg.LinAlgError:
-                    raise ValueError("Face {} is too close to being co-linear".format(f))
-            else:
-                # least squares
-                sol, resid, rank, s = np.linalg.lstsq(M, b, rcond=None)
-                # TODO: Use rank and resid to confirm quality of answer:
-                #  rank will measure linear independence
-                #  resid will report planarity.
-                A, B, C = tuple([int(i) for i in sol if int(i) == i])
-
-            # TODO: This isn't necessarily normalized. If b proves to be the zero vector, then
-            # I'm looking at the vector that is the nullspace of the matrix and that's true to
-            # arbitrary scale. Confirm that this isn't a problem.
-            node.A = A
-            node.B = B
-            node.C = C
-            navMesh.addNode(node)
-
-        print("Found %d edges" % (len(edges)))
-        internal = list(filter(lambda edge: len(edgeMap[tuple(edge)]) > 1, edges))
-        external = list(filter(lambda edge: len(edgeMap[tuple(edge)]) == 1, edges))
-        print("\tFound %d internal edges" % len(internal))
-        print("\tFound %d external edges" % len(external))
-
-        # process the internal edges
-        for i, intern in enumerate(internal):
-            v0, v1 = intern
-            A, B = edgeMap[tuple(intern)]
-            a, aFace = A
-            b, bFace = B
-            na = navMesh.nodes[a]
-            na.addEdge(i)
-            nb = navMesh.nodes[b]
-            nb.addEdge(i)
-            edge = Edge()
-            edge.v0 = v0
-            edge.v1 = v1
-            # TODO: Do these two nodes require a particular relationship vis a vis
-            # the vertex ordering? I.e., should a be on the left and b on the right?
-            # is that even guaranteed?
-            edge.n0 = na
-            edge.n1 = nb
-            navMesh.addEdge(edge)
-
-        # process the external edges (obstacles)
-        # for each external edge, make sure the "winding" is opposite that of the face
-        obstacles = []
-        vertObstMap = {}  # mapping from vertex to the obstacles that are incident to the vertex
-        for i, extern in enumerate(external):
-            f, face = edgeMap[tuple(extern)][0]
-            v0, v1 = extern
-
-            oID = len(obstacles)
-            o = Obstacle()
-            o.n0 = navMesh.nodes[f]
-            if v0 in vertObstMap:
-                vertObstMap[v0].append(oID)
-            else:
-                vertObstMap[v0] = [oID]
-            if v1 in vertObstMap:
-                vertObstMap[v1].append(oID)
-            else:
-                vertObstMap[v1] = [oID]
-
-            i0 = face.verts.index(v0)
-            vCount = len(face.verts)
-            if face.verts[(i0 + 1) % vCount] == v1:
-                o.v0 = v0
-                o.v1 = v1
-            else:
-                o.v0 = v1
-                o.v1 = v0
-            obstacles.append(o)
-
-        processObstacles(obstacles, vertObstMap, vertNodeMap, navMesh)
-
-        print("Found %d obstacles" % len(obstacles))
-        #    for o in obstacles:
-        #        print '\t', ' '.join( map( lambda x: str(x), o ) )
-
-        self.navmesh = navMesh
-
-        navMesh.writeNavFile(self.output['navmesh'], ascii=True)
+        mesh.writeNavFile(self.output['navmesh'], ascii=True)
 
 
 if __name__ == '__main__':
