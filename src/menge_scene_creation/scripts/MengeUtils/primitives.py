@@ -93,6 +93,9 @@ class Vector2(object):
     def __repr__(self):
         return str(self)
 
+    def __hash__(self):
+        return hash((self.x, self.y))
+
     def isZero(self):
         """Reports if the vector is zero"""
         return self.x == 0.0 and self.y == 0.0
@@ -167,6 +170,9 @@ class Vector3(object):
         self.y += v.y
         self.z += v.z
         return self
+
+    def __hash__(self):
+        return hash((self.x, self.y, self.z))
 
     def asTuple(self):
         return self.x, self.y, self.z
@@ -273,12 +279,12 @@ class Face(object):
         vIndex = 0
         for v in self.verts:
             s += '%d' % (v - 1)
-            ##            if ( self.uvs ):
-            ##                s += '/%d' % self.uvs[vIndex]
-            ##            if ( self.norms ):
-            ##                if (not self.uvs ):
-            ##                    s += '/'
-            ##                s += '/%d' % self.norms[vIndex]
+            #            if ( self.uvs ):
+            #                s += '/%d' % self.uvs[vIndex]
+            #            if ( self.norms ):
+            #                if (not self.uvs ):
+            #                    s += '/'
+            #                s += '/%d' % self.norms[vIndex]
             s += ' '
             vIndex += 1
         return s
@@ -286,16 +292,16 @@ class Face(object):
     def PLYBinaryFormat(self, useNorms=False, useUvs=False):
         """Writes face definition in PLY format"""
         s = pack('>b', len(self.verts))
-        ##        vIndex = 0
+        #        vIndex = 0
         for v in self.verts:
             s += pack('>i', (v - 1))
-        ##            if ( self.uvs ):
-        ##                s += '/%d' % self.uvs[vIndex]
-        ##            if ( self.norms ):
-        ##                if (not self.uvs ):
-        ##                    s += '/'
-        ##                s += '/%d' % self.norms[vIndex]
-        ##            vIndex += 1
+        #            if ( self.uvs ):
+        #                s += '/%d' % self.uvs[vIndex]
+        #            if ( self.norms ):
+        #                if (not self.uvs ):
+        #                    s += '/'
+        #                s += '/%d' % self.norms[vIndex]
+        #            vIndex += 1
         return s
 
 
