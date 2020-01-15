@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 # aspects of file format not supported
 # doesn't read material libraries
 # doesn't do smoothing groups (s)
@@ -14,7 +16,7 @@
 import re
 from datetime import datetime
 
-from MengeUtils.primitives import *
+from .primitives import *
 
 # from copy import deepcopy
 

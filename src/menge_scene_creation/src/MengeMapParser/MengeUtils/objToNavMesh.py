@@ -1,12 +1,14 @@
+#! /usr/bin/env python3
+
 # Parses an OBJ file and outputs an NavMesh file definition
 #   - see navMesh.py for the definition of that file format
 
 import sys
 
 import numpy as np
-from MengeUtils.ObjReader import ObjFile
-from MengeUtils.navMesh import Node, Edge, Obstacle, NavMesh
-from MengeUtils.primitives import Vector2
+from .ObjReader import ObjFile
+from .navMesh import Node, Edge, Obstacle, NavMesh
+from .primitives import Vector2
 
 
 def analyze_obj(obj_file, vertex_tolerance=1e-4):

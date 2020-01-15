@@ -1,0 +1,35 @@
+#! /usr/bin/env python3
+
+import argparse
+import rospy as rp
+from sys import exit
+from MengeMapParser import MengeMapParser
+
+
+def main():
+
+    parser = argparse.ArgumentParser('Take an image (map) and its resolution as input, '
+                                     'extract obstacles and build a Menge-compliant xml out of that map')
+    parser.add_argument('map_file', help='path to the map image file which shall be used in Menge')
+    parser.add_argument('--resolution', '-res', type=float, default=0.05, help='map resolution in [m]')
+    parser.add_argument('--config', '-c', default="config/scene.yaml",
+                        help="relative or absolute path of a yaml config file")
+    parser.add_argument('--output_file', '-o', help="name/path of output file; if not given, "
+                                                    "name + dir will be inferred from the map file instead")
+    args = parser.parse_args(rp.myargv()[1:])
+
+    # try:
+    if args.output_file:
+        img_parser = MengeMapParser(args.map_file, args.resolution, "config/scene.yaml", args.output_file)
+    else:
+        img_parser = MengeMapParser(args.map_file, args.resolution, args.config)
+
+    img_parser.full_process(make_navmesh=True)
+
+    # except (AssertionError, ValueError) as e:
+    #     print("ERROR")
+    #     exit(e)
+
+
+if __name__ == '__main__':
+    main()

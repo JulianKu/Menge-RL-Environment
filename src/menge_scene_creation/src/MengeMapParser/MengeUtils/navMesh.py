@@ -1,7 +1,9 @@
+#! /usr/bin/env python3
+
 # The definition of a navigation mesh
 
 import struct
-from MengeUtils.primitives import Vector2
+from .primitives import Vector2
 from numpy import array, arctan2, pi
 
 

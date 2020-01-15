@@ -1,19 +1,20 @@
+#! /usr/bin/env python3
+
 import cv2
 import numpy as np
 import xml.etree.ElementTree as ET
-import argparse
-import rospy as rp
 import os
-from sys import exit
 import matplotlib.pyplot as plt
 from skimage import measure, draw
-from utils import xml_indentation, read_yaml, dict2etree, remove_inner_contours, \
-    approximate_contours, pixel2meter, center2corner_pivot, get_triangles, triangulate_map
-from MengeUtils.objToNavMesh import buildNavMesh
-from MengeUtils.ObjReader import ObjFile
+from .ParserUtils.contours_manipulation import remove_inner_contours, approximate_contours
+from .ParserUtils.markup_utils import xml_indentation, read_yaml, dict2etree
+from .ParserUtils.coordinate_transform import pixel2meter, center2corner_pivot
+from .ParserUtils.triangulation import get_triangles, triangulate_map
+from .MengeUtils.objToNavMesh import buildNavMesh
+from .MengeUtils.ObjReader import ObjFile
 
 
-class MapParser:
+class MengeMapParser:
     """
     Take an image (map) and its resolution as input, extract obstacles and build a Menge-compliant
     xml out of that map
@@ -23,6 +24,7 @@ class MapParser:
         """
         :param img_path:    path to the map image file
         :param resolution:  map resolution in [m]
+        :param config_path: path to yaml config file specifying all simulation parameters
         :param output:      name/path of output file; if not given,
                             name + dir will be inferred from the map file instead
         """
@@ -132,7 +134,7 @@ class MapParser:
         self.extract_target_areas()
         self.make_xml(**kwargs)
 
-    def extract_obstacles(self, r_d=15, r_c=20, r_e=10, tolerance=0.5, **kwargs):
+    def extract_obstacles(self, r_d=15, r_c=20, r_e=10, tolerance=0.1, **kwargs):
         """
         extract static obstacles from image by detecting lines/contours
 
@@ -196,7 +198,13 @@ class MapParser:
             # threshold image to only contain value for background and value for regions
             _, target = cv2.threshold(self.target, thresh=threshold, maxval=255, type=threshold_type)
             # extract contours
-            _, tgt_contours, _ = cv2.findContours(target.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            try:
+                # for OpenCV2 and OpenCV4 findContours returns 2 values
+                tgt_contours, _ = cv2.findContours(target.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+                
+            except ValueError:
+                # for OpenCV3 findContours returns 3 values
+                _, tgt_contours, _ = cv2.findContours(target.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
             for idx, contour in enumerate(tgt_contours):
                 tgt_contours[idx] = cv2.minAreaRect(contour)
@@ -406,7 +414,7 @@ class MapParser:
         if make_navmesh:
             self.make_navmesh()
 
-    def make_base(self, pedestrian_model="orca", **kwargs):
+    def make_base(self, pedestrian_model="pedvo", **kwargs):
         """
         make a Menge simulator compliant xml file that specifies a scenario based on the scene, behavior and view file.
         """
@@ -578,14 +586,18 @@ class MapParser:
         assert self.config, \
             "Unable to parse config file.\n Config file is required for generating Menge compliant xml files"
 
+        #TODO:
+        # find way to specify view automatically from map
         pass
 
     def make_navmesh(self):
 
+        # triangulate map --> extract vertices and faces
         verts, faces = triangulate_map(self.contours)
         verts = np.transpose(pixel2meter(np.transpose(verts), self.dims, self.resolution))
         print("\t {:d} faces have been extracted from the map".format(len(faces)))
 
+        # write Wavefront obj file from map
         obj_file = os.path.splitext(self.output['navmesh'])[0] + '.obj'
         with open(obj_file, 'w') as write_file:
             write_file.write("# OBJ file for %s\n" % self.img_name)
@@ -609,25 +621,4 @@ class MapParser:
 
         mesh.writeNavFile(self.output['navmesh'], ascii=True)
 
-
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser('Take an image (map) and its resolution as input, '
-                                     'extract obstacles and build a Menge-compliant xml out of that map')
-    parser.add_argument('map_file', help='path to the map image file which shall be used in Menge')
-    parser.add_argument('resolution', type=float, help='map resolution in [m]')
-    parser.add_argument('--output_file', '-o', help="name/path of output file; if not given, "
-                                                    "name + dir will be inferred from the map file instead")
-    args = parser.parse_args(rp.myargv()[1:])
-
-    try:
-        if args.o:
-            img_parser = MapParser(args.map_file, args.resolution, "config/scene.yaml", args.o)
-        else:
-            img_parser = MapParser(args.map_file, args.resolution, "config/scene.yaml")
-
-        img_parser.full_process(make_navmesh=True)
-
-    except (AssertionError, ValueError) as e:
-        print("ERROR")
-        exit(e)
+        self.navmesh = mesh

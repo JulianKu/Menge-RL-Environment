@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 from copy import deepcopy
 from struct import pack
 from math import sqrt
