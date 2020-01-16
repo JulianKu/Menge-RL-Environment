@@ -7,7 +7,9 @@ project(menge_scene_creation)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS
+  rospy
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -101,7 +103,7 @@ catkin_python_setup()
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES menge_scene_creation
-#  CATKIN_DEPENDS other_catkin_pkg
+#  CATKIN_DEPENDS python-argparse python3-matplotlib python3-numpy python3-opencv python3-rospkg python3-skimage python3-yaml rospy
 #  DEPENDS system_lib
 )
 
@@ -113,7 +115,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
 # include
-    ${catkin_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -155,10 +157,10 @@ include_directories(
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-install(PROGRAMS
-    scripts/main.py
-    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+ install(PROGRAMS
+   scripts/create_sim_project
+   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

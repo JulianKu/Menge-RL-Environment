@@ -1,8 +1,10 @@
 build/
 devel/
+logs/
 .catkin_workspace
-log.css
-log.html
+.catkin_tools
+**/log.css
+**/log.html
 
 
 ### General Python ignores

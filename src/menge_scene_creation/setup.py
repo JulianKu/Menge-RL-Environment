@@ -8,7 +8,7 @@ setup_args = generate_distutils_setup(
     packages=['MengeMapParser'],
     package_dir={'': 'src'},
     author='Julian Kunze',
-    author_email='julian.kunze@tum.de',
+    author_email='julian-kunze@gmx.de',
 )
 
 setup(requires=['scikit-image', 'triangle', 'cv2', 'PyYAML'], **setup_args)
