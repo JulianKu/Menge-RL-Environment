@@ -6,7 +6,9 @@ import xml.etree.ElementTree as ET
 import os
 import matplotlib.pyplot as plt
 from skimage import measure, draw
+from skimage.morphology import skeletonize
 from .ParserUtils.contours_manipulation import remove_inner_contours, approximate_contours
+from .ParserUtils.utils import make_img_binary, str2bool
 from .ParserUtils.markup_utils import xml_indentation, read_yaml, dict2etree
 from .ParserUtils.coordinate_transform import pixel2meter, center2corner_pivot
 from .ParserUtils.triangulation import get_triangles, triangulate_map
@@ -49,6 +51,12 @@ class MengeMapParser:
         # initialize rect coordinates/mask for each target region box
         self.target_boxes = None
         self.target_idx = None
+
+        trajectory_path = os.path.join(self.img_dir, self.img_name + "_trajectory" + self.img_ext)
+        if os.path.isfile(trajectory_path):
+            self.trajectory_img = cv2.imread(trajectory_path, cv2.IMREAD_GRAYSCALE)
+        else:
+            self.trajectory_img = None
 
         self.resolution = resolution
         if config_path:
@@ -110,6 +118,7 @@ class MengeMapParser:
         self.dilated = None
         self.eroded = None
         self.contours = None
+        self.bounds = None
         self.contours_img = None
 
         # empty image for triangulation
@@ -130,9 +139,26 @@ class MengeMapParser:
         """
         first extract obstacles from image, then write results into Menge compliant xml file
         """
+        self.extract_trajectory()
         self.extract_obstacles(**kwargs)
         self.extract_target_areas()
         self.make_xml(**kwargs)
+
+    def extract_trajectory(self):
+        """
+        extract trajectory pixels from corresponding image
+        if no trajectory given, return image center
+
+        :return: indices of trajectory pixels
+        """
+
+        if self.trajectory_img is not None:
+            trajectory = make_img_binary(self.trajectory_img) / 255.
+            trajectory = skeletonize(trajectory)
+            return np.array(np.where(trajectory)).T
+        else:
+            # return image center
+            return np.array(self.img.shape).reshape(-1, 2) // 2
 
     def extract_obstacles(self, r_d=15, r_c=20, r_e=10, tolerance=0.1, **kwargs):
         """
@@ -143,6 +169,11 @@ class MengeMapParser:
         :param r_e:             radius for structuring element for erosion
         :param tolerance:       tolerance value in [m] for the obstacle approximation
         """
+
+        # make sure arguments are of the correct type (e.g when passed via commandline)
+        r_d, r_c, r_e = int(r_d), int(r_c), int(r_e)
+        tolerance = float(tolerance)
+
         ungrayed = self.img.copy()
         # pixel without information got initially assigned gray (128) --> make white (255) instead
         ungrayed[ungrayed == 128] = 255
@@ -157,12 +188,16 @@ class MengeMapParser:
         kernel_erosion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (r_e, r_e))
         eroded = cv2.erode(closed, kernel_erosion)
 
+        # get trajectory for traversable area
+        trajectory_pixels = self.extract_trajectory()
+
         # extract contours
         contours = measure.find_contours(eroded, 1, fully_connected='high', positive_orientation='high')
         contours = [np.rint(contour).astype('int32') for contour in contours]
         # remove inner contours
-        contours = remove_inner_contours(contours)
+        contours, bounds = remove_inner_contours(contours, trajectory_pixels)
         self.contours = approximate_contours(contours, tolerance / self.resolution)
+        self.bounds = approximate_contours(bounds, tolerance / self.resolution)
 
         # save intermediate results for plotting
         self.thresh = thresh
@@ -181,22 +216,8 @@ class MengeMapParser:
         extract rectangular regions from the target image
         """
         if self.target is not None:
-            # count occurrences of each color value [0...255] in the target image
-            counts = np.bincount(self.target.ravel())
-            # get color values with highest (background) and second highest (marked regions) frequency
-            max2 = counts.argsort()[-2:][::-1]
+            target = make_img_binary(self.target)
 
-            if max2[0] > max2[1]:
-                # background is lighter than target regions
-                threshold_type = cv2.THRESH_BINARY_INV
-                threshold = max2[1] + 1
-            else:
-                # target region is lighter than background
-                threshold_type = cv2.THRESH_BINARY
-                threshold = max2[1] - 1
-
-            # threshold image to only contain value for background and value for regions
-            _, target = cv2.threshold(self.target, thresh=threshold, maxval=255, type=threshold_type)
             # extract contours
             try:
                 # for OpenCV2 and OpenCV4 findContours returns 2 values
@@ -217,23 +238,31 @@ class MengeMapParser:
                 tgt_image[rr, cc] = 1
 
         else:
-            # if no target regions specified --> make everything outside the obstacles a target region
+            # if no target regions specified
+            # --> make everything outside the obstacles and inside the bounds a target region
             if not self.obstacles_extracted:
                 print("Edges have not been extracted before. Running edge extractor with default settings now")
                 self.extract_obstacles()
 
-            # Create a contour image
+            # Create a pixel maps of contours
             contour_image = np.zeros_like(self.img, dtype='float')
+            bounds_image = np.zeros_like(self.img, dtype='float')
             for contour in self.contours:
                 rr, cc = draw.polygon(contour[:, 0], contour[:, 1])
                 contour_image[rr, cc] = 1
+
+            smallest_bounding_cnt = self.bounds[0]
+            rr, cc = draw.polygon(smallest_bounding_cnt[:, 0], smallest_bounding_cnt[:, 1])
+            bounds_image[rr, cc] = 1
 
             clearance_to_contours = 1  # meter
             kernel_size = (np.rint(clearance_to_contours / self.resolution).astype('int32'),) * 2
             kernel_erosion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, kernel_size)
             contour_image = cv2.dilate(contour_image, kernel_erosion).astype('bool')
+            bounds_image = cv2.erode(bounds_image, kernel_erosion).astype('bool')
 
-            tgt_image = np.bitwise_not(contour_image)
+            # only allow targets inside of bounding contours where there are no obstacles
+            tgt_image = np.bitwise_and(bounds_image, np.bitwise_not(contour_image))
 
             # maybe sample rectangles in free space? i.e tgt_image == True
             tgt_contours = []
@@ -314,11 +343,12 @@ class MengeMapParser:
 
                     base_image = cv2.cvtColor(base_image, cv2.COLOR_GRAY2RGB)
 
-                    for contour in self.contours:
+                    for contour in self.contours + self.bounds:
                         plt.plot(contour[:, 1], contour[:, 0], linewidth=1, alpha=alpha)
                         rr, cc = draw.polygon_perimeter(contour[:, 0], contour[:, 1])
                         base_image[rr, cc] = (1 - alpha) * base_image[rr, cc] \
                                              + alpha * np.ones(base_image.shape)[rr, cc] * np.array([255, 0, 0])
+
                     self.contours_img = base_image
 
                 elif image == "targets" or image == "targets_orig":
@@ -354,13 +384,9 @@ class MengeMapParser:
 
                     base_image = cv2.cvtColor(base_image, cv2.COLOR_GRAY2RGB)
 
-                    triangles, vertices = get_triangles(self.contours)
+                    triangles, vertices = get_triangles(self.contours, self.bounds)
 
                     for triangle in vertices[triangles]:
-                        # skip triangles inside of contours
-                        if np.any([measure.points_in_poly(triangle.mean(axis=0).reshape(1, 2), contour)[0]
-                                   for contour in self.contours]):
-                            continue
                         plt.plot(triangle[:, 1], triangle[:, 0], linewidth=1, alpha=alpha)
                         rr, cc = draw.polygon_perimeter(triangle[:, 0], triangle[:, 1])
                         base_image[rr, cc] = (1 - alpha) * base_image[rr, cc] \
@@ -404,6 +430,9 @@ class MengeMapParser:
         compose a Menge compliant scenario out of four xml files (base, scene, behavior, view)
         """
 
+        # make sure arguments are of the correct type (e.g when passed via commandline)
+        make_navmesh = str2bool(make_navmesh)
+
         assert self.config, \
             "Unable to parse config file.\n Config file is required for generating Menge compliant xml files"
 
@@ -418,6 +447,8 @@ class MengeMapParser:
         """
         make a Menge simulator compliant xml file that specifies a scenario based on the scene, behavior and view file.
         """
+
+        assert pedestrian_model in ['pedvo', 'orca'], "Specified pedestrian model is not supported"
 
         output = self.output
 
@@ -441,6 +472,9 @@ class MengeMapParser:
         """
         make a Menge simulator compliant scene xml file out of the extracted contours and the scene config
         """
+
+        # make sure arguments are of the correct type (e.g when passed via commandline)
+        num_agents = int(num_agents)
 
         assert self.config['Experiment'], \
             "Unable to parse Experiment field in config file.\n " \
@@ -466,7 +500,7 @@ class MengeMapParser:
         dims = self.dims
         transformed_tgts = pixel2meter(self.target_idx, dims, res)
 
-        for a in range(num_agents):
+        for a in range(int(num_agents)):
             agent = ET.SubElement(generator, "Agent")
             random_idx = np.random.choice(len(transformed_tgts[0]))
             agent_x = transformed_tgts[0][random_idx]
@@ -483,7 +517,7 @@ class MengeMapParser:
             print("extract_obstacles has not yet been called. ObstacleSet will be empty.")
 
         # make obstacle for every contour
-        for contour in self.contours:
+        for contour in self.contours + self.bounds:
             obstacle = ET.SubElement(obstacle_set, "Obstacle")
             obstacle.set("closed", "1")
             for point in contour:
@@ -507,6 +541,10 @@ class MengeMapParser:
         :param: num_goals: only required when no target is given,
                            number of goals to sample from free space in environment (self.target_idx)
         """
+
+        # make sure arguments are of the correct type (e.g when passed via commandline)
+        if num_goals:
+            num_goals = int(num_goals)
 
         assert self.config['BFSM'], \
             "Unable to parse BFSM behavior field in config file.\n " \
@@ -548,9 +586,10 @@ class MengeMapParser:
 
         else:
             # sample goal points in free space
+            assert num_goals, "If no goal regions are specified, you have to at least provide the number of goals"
 
             transformed_tgts = pixel2meter(self.target_idx, dims, res)
-            for tgt_id in range(num_goals):
+            for tgt_id in range(int(num_goals)):
                 random_idx = np.random.choice(len(transformed_tgts[0]))
                 tgt_x = transformed_tgts[0][random_idx]
                 tgt_y = transformed_tgts[1][random_idx]
@@ -593,7 +632,7 @@ class MengeMapParser:
     def make_navmesh(self):
 
         # triangulate map --> extract vertices and faces
-        verts, faces = triangulate_map(self.contours)
+        verts, faces = triangulate_map(self.contours, self.bounds)
         verts = np.transpose(pixel2meter(np.transpose(verts), self.dims, self.resolution))
         print("\t {:d} faces have been extracted from the map".format(len(faces)))
 

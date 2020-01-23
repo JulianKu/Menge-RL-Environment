@@ -1,33 +1,43 @@
 #! /usr/bin/env python3
 
 import argparse
-from sys import exit
+from os import path
 from MengeMapParser import MengeMapParser
+from MengeMapParser.ParserUtils import parse_unknown_args
 
 
 def main():
-
-    parser = argparse.ArgumentParser('Take an image (map) and its resolution as input, '
-                                     'extract obstacles and build a Menge-compliant xml out of that map')
+    parser = argparse.ArgumentParser(description='Take an image (map) and its resolution as input, '
+                                     'extract obstacles and build a Menge-compliant xml out of that map',
+                                     epilog='It is also possible to provide additional arguments:\n'
+                                            'Just add more positional arguments or provide keyword arguments '
+                                            'in either of the following forms:\n'
+                                            '\t1) -key value\n'
+                                            '\t2) --key value\n'
+                                            '\t3) key=value\n'
+                                            'The parser will handle it accordingly and pass it to the different '
+                                            'functions.',
+                                     formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('map_file', help='path to the map image file which shall be used in Menge')
     parser.add_argument('--resolution', '-res', type=float, default=0.05, help='map resolution in [m]')
-    parser.add_argument('--config', '-c', default="config/scene.yaml",
+    parser.add_argument('--config', '-c',
                         help="relative or absolute path of a yaml config file")
-    parser.add_argument('--output_file', '-o', help="name/path of output file; if not given, "
+    parser.add_argument('--output_file', '-o', help="name/path of output file; if not given,\n"
                                                     "name + dir will be inferred from the map file instead")
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
-    # try:
+    if not args.config:
+        parent_dir = path.dirname(path.dirname(path.abspath(__file__)))
+        args.config = path.join(path.join(parent_dir, "config"), "scene.yaml")
+
     if args.output_file:
-        img_parser = MengeMapParser(args.map_file, args.resolution, "config/scene.yaml", args.output_file)
+        img_parser = MengeMapParser(args.map_file, args.resolution, args.config, args.output_file)
     else:
         img_parser = MengeMapParser(args.map_file, args.resolution, args.config)
 
-    img_parser.full_process(make_navmesh=True)
+    unknown_args, unknown_kwargs = parse_unknown_args(unknown)
 
-    # except (AssertionError, ValueError) as e:
-    #     print("ERROR")
-    #     exit(e)
+    img_parser.full_process(*unknown_args, **unknown_kwargs)
 
 
 if __name__ == '__main__':
