@@ -211,12 +211,56 @@ class MengeMapParser:
         # set flag
         self.obstacles_extracted = True
 
+    def extract_traversable_space(self):
+        """
+        uses extracted obstacles and enclosing contours to find the traversable space
+
+        :return: binary image of the traversable space
+        """
+
+        if not self.obstacles_extracted:
+            print("Edges have not been extracted before. Running edge extractor with default settings now")
+            self.extract_obstacles()
+
+        # Create a pixel maps of obstacles
+        contour_image = np.zeros_like(self.img, dtype='float')
+        for contour in self.contours:
+            rr, cc = draw.polygon(contour[:, 0], contour[:, 1])
+            contour_image[rr, cc] = 1
+
+        # create pixel map of enclosed space
+        bounds_image = np.zeros_like(self.img, dtype='float')
+        smallest_bounding_cnt = self.bounds[0]
+        rr, cc = draw.polygon(smallest_bounding_cnt[:, 0], smallest_bounding_cnt[:, 1])
+        bounds_image[rr, cc] = 1
+
+        # introduce clearance to obstacles
+        clearance_to_contours = 1  # meter
+        kernel_size = (np.rint(clearance_to_contours / self.resolution).astype('int32'),) * 2
+        kernel_erosion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, kernel_size)
+        # dilate obstacles by clearance
+        contour_image = cv2.dilate(contour_image, kernel_erosion).astype('bool')
+        # erode enclosed area by clearance
+        bounds_image = cv2.erode(bounds_image, kernel_erosion).astype('bool')
+
+        # space inside of bounding contours where there are no obstacles is traversable
+        traversable_space = np.bitwise_and(bounds_image, np.bitwise_not(contour_image))
+
+        return traversable_space
+
     def extract_target_areas(self):
         """
-        extract rectangular regions from the target image
+        if target image is given extract rectangular regions from it
+        otherwise the entire traversable space is used for target regions
         """
+
+        traversable_space = self.extract_traversable_space()
+
         if self.target is not None:
             target = make_img_binary(self.target)
+
+            # only keep part of targets that lies inside traversable space
+            target = np.bitwise_and(target, traversable_space)
 
             # extract contours
             try:
@@ -239,32 +283,11 @@ class MengeMapParser:
 
         else:
             # if no target regions specified
-            # --> make everything outside the obstacles and inside the bounds a target region
-            if not self.obstacles_extracted:
-                print("Edges have not been extracted before. Running edge extractor with default settings now")
-                self.extract_obstacles()
+            # --> make whole traversable space to target region
+            tgt_image = traversable_space
 
-            # Create a pixel maps of contours
-            contour_image = np.zeros_like(self.img, dtype='float')
-            bounds_image = np.zeros_like(self.img, dtype='float')
-            for contour in self.contours:
-                rr, cc = draw.polygon(contour[:, 0], contour[:, 1])
-                contour_image[rr, cc] = 1
-
-            smallest_bounding_cnt = self.bounds[0]
-            rr, cc = draw.polygon(smallest_bounding_cnt[:, 0], smallest_bounding_cnt[:, 1])
-            bounds_image[rr, cc] = 1
-
-            clearance_to_contours = 1  # meter
-            kernel_size = (np.rint(clearance_to_contours / self.resolution).astype('int32'),) * 2
-            kernel_erosion = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, kernel_size)
-            contour_image = cv2.dilate(contour_image, kernel_erosion).astype('bool')
-            bounds_image = cv2.erode(bounds_image, kernel_erosion).astype('bool')
-
-            # only allow targets inside of bounding contours where there are no obstacles
-            tgt_image = np.bitwise_and(bounds_image, np.bitwise_not(contour_image))
-
-            # maybe sample rectangles in free space? i.e tgt_image == True
+            # TODO:
+            #  for contours, maybe sample rectangles in free space?
             tgt_contours = []
 
         self.target_boxes = tgt_contours
