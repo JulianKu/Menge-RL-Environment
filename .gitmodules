@@ -1,0 +1,3 @@
+[submodule "src/menge_ros"]
+	path = menge_ros
+	url = https://github.com/JulianKu/menge_ros.git
