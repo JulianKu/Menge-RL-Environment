@@ -491,7 +491,7 @@ class MengeMapParser:
         # write to file
         self.base_tree.write(self.output['base'], xml_declaration=True, encoding='utf-8', method="xml")
 
-    def make_scene(self, num_agents=200, **kwargs):
+    def make_scene(self, num_agents=200, num_robots=1, **kwargs):
         """
         make a Menge simulator compliant scene xml file out of the extracted contours and the scene config
         """
@@ -507,24 +507,43 @@ class MengeMapParser:
 
         dict2etree(root, self.config['Experiment'])
 
-        # define agent group
-        agent_group = ET.SubElement(root, "AgentGroup")
-        profile_selector = ET.SubElement(agent_group, "ProfileSelector")
-        profile_selector.set("type", "const")
-        profile_selector.set("name", "group1")
-        state_selector = ET.SubElement(agent_group, "StateSelector")
-        state_selector.set("type", "const")
-        state_selector.set("name", "Walk")
-        generator = ET.SubElement(agent_group, "Generator")
-        generator.set("type", "explicit")
-
-        # define agents
+        # define robots and agents
         res = self.resolution
         dims = self.dims
         transformed_tgts = pixel2meter(self.target_idx, dims, res)
 
+        # define robot group
+        robot_group = ET.SubElement(root, "AgentGroup")
+        rob_profile_selector = ET.SubElement(robot_group, "ProfileSelector")
+        rob_profile_selector.set("type", "const")
+        rob_profile_selector.set("name", "robot")
+        rob_state_selector = ET.SubElement(robot_group, "StateSelector")
+        rob_state_selector.set("type", "const")
+        rob_state_selector.set("name", "Walk")
+        rob_generator = ET.SubElement(robot_group, "Generator")
+        rob_generator.set("type", "explicit")
+
+        for rob in range(int(num_robots)):
+            robot = ET.SubElement(rob_generator, "Agent")
+            random_idx = np.random.choice(len(transformed_tgts[0]))
+            robot_x = transformed_tgts[0][random_idx]
+            robot_y = transformed_tgts[1][random_idx]
+            robot.set("p_x", str(robot_x))
+            robot.set("p_y", str(robot_y))
+
+        # define agent group
+        agent_group = ET.SubElement(root, "AgentGroup")
+        agt_profile_selector = ET.SubElement(agent_group, "ProfileSelector")
+        agt_profile_selector.set("type", "const")
+        agt_profile_selector.set("name", "group1")
+        agt_state_selector = ET.SubElement(agent_group, "StateSelector")
+        agt_state_selector.set("type", "const")
+        agt_state_selector.set("name", "Walk")
+        agt_generator = ET.SubElement(agent_group, "Generator")
+        agt_generator.set("type", "explicit")
+
         for a in range(int(num_agents)):
-            agent = ET.SubElement(generator, "Agent")
+            agent = ET.SubElement(agt_generator, "Agent")
             random_idx = np.random.choice(len(transformed_tgts[0]))
             agent_x = transformed_tgts[0][random_idx]
             agent_y = transformed_tgts[1][random_idx]

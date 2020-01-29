@@ -101,9 +101,12 @@ Experiment:
             class: 3
             r: 0.3
             external: 1
+            start_angle: -0.8587
+            end_angle: 0.8587
+            increment: 0.0017453
+            range_max: 50
         Helbing: 
-            mass: 32
-
+            mass: 320
 
 BFSM:
     StateWalk: 
