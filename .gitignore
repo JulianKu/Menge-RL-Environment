@@ -1,6 +1,7 @@
 build/
 devel/
 logs/
+workspace_folder/
 .catkin_workspace
 .catkin_tools
 **/log.css
