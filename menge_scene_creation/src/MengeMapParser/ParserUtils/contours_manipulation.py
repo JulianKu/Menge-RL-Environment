@@ -41,7 +41,9 @@ def remove_inner_contours(contours, trajectory):
 
     # only keep innermost bounding contour
     real_bound = np.array([])
-    if len(bounding_contours) > 1:
+    if len(bounding_contours) == 1:
+        real_bound = bounding_contours
+    elif len(bounding_contours) > 1:
         for bound1 in bounding_contours:
             cnt_bnd1 = contours[bound1]
             for bound2 in bounding_contours:
@@ -62,13 +64,16 @@ def remove_inner_contours(contours, trajectory):
     if not real_bound:
         # return all inner contours, sorted ascending by the area they enclose
         contour_area = lambda cnt: np.abs(0.5*np.sum(cnt[:, 1][:-1]*np.diff(cnt[:, 0]) - cnt[:, 0][:-1]*np.diff(cnt[:, 1])))
-        order = np.argsort([contour_area(cnt) for cnt in bounding_contours])
+        order = np.argsort([contour_area(contours[cnt]) for cnt in bounding_contours])
         real_bound = bounding_contours[order]
 
     # make inner_contours (that should be removed) unique
-    to_remove = set(np.concatenate(inner_contours)).union(bounding_contours)
+    if len(inner_contours):
+        to_remove = set(np.concatenate(inner_contours)).union(bounding_contours)
+    else:
+        to_remove = set(bounding_contours)
     # delete inner contours
-    reduced_contours = list(np.delete(np.array(contours), list(to_remove)))
+    reduced_contours = list(np.delete(np.array(contours), list(to_remove), axis=0))
     # reverse order of contour vertices to maintain correct winding
     bounding_contours = [contours[cnt_idx] for cnt_idx in real_bound]
     # bounding_contours = [np.flip(contours[cnt_idx], axis=0) for cnt_idx in real_bound]

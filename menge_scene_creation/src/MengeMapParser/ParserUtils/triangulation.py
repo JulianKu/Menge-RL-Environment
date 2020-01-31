@@ -90,10 +90,10 @@ def get_triangles(contours, bounds, make_holes=True):
     pslg = {'vertices': np.array(vertices), 'segments': np.array(segments)}
 
     # add holes if required
-    if make_holes:
+    if make_holes and len(holes):
         pslg['holes'] = np.array(holes)
 
-    t = tr.triangulate(pslg, 'pc')
+    t = tr.triangulate(pslg, 'pcq')
 
     triangles = t['triangles']
     vertices = t['vertices']
