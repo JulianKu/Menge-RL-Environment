@@ -33,8 +33,9 @@ def center2corner_pivot(box):
     center, size, angle = box
     center_x, center_y = center
     width, height = size
-    cos_a = np.cos(angle * np.pi / 180)
-    sin_a = np.sin(angle * np.pi / 180)
+    angle_rad = angle * np.pi / 180
+    cos_a = np.cos(angle_rad)
+    sin_a = np.sin(angle_rad)
     pivot_x = center_x - cos_a * width / 2 + sin_a * height / 2
     pivot_y = center_y - cos_a * height / 2 - sin_a * width / 2
 

@@ -59,7 +59,7 @@ Experiment:
             max_neighbors: 10
             obstacleSet: 1
             neighbor_dist: 5
-            r: 0.5
+            r: 0.25
             class: 4
             pref_speed: 1.04
             max_speed: 2
