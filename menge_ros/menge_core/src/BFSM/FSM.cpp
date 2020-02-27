@@ -208,12 +208,12 @@ namespace Menge {
 				//std::cout << "External Agent detected : " << ID << std::endl;
 				prefVelMsg.setSpeed(0.0);
 				//std::cout << "Before spin "<< std::endl;
-                ROS_DEBUG("speed before: [%f]", prefVelMsg.getSpeed());
-                ROS_DEBUG("preferred before: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
+                ROS_INFO("speed before: [%f]", prefVelMsg.getSpeed());
+                ROS_INFO("preferred before: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
 				ros::spinOnce();
                 //std::cout << "After spin "<< std::endl;
-                ROS_DEBUG("speed after: [%f]", prefVelMsg.getSpeed());
-                ROS_DEBUG("preferred after: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
+                ROS_INFO("speed after: [%f]", prefVelMsg.getSpeed());
+                ROS_INFO("preferred after: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
 
 				newVel = prefVelMsg;
 
@@ -496,6 +496,7 @@ namespace Menge {
 		bool FSM::doStep() {
 			// NOTE: This is a cast from size_t to int to be compatible with older implementations
 			//		of openmp which require signed integers as loop variables
+            ROS_INFO("doStep() in FSM called");
 
 			SIM_TIME = this->_sim->getGlobalTime();
 			EVENT_SYSTEM->evaluateEvents();

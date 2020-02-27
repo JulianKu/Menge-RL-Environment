@@ -18,7 +18,8 @@ setup(
         'numpy',
         'scipy',
         'scikit-learn',
-        'filterpy'
+        'filterpy',
+        'psutil'
     ],
     extras_require={
         'test': [

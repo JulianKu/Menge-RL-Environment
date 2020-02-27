@@ -3,7 +3,7 @@
 License
 
 Menge
-Copyright ï¿½ and trademark ï¿½ 2012-14 University of North Carolina at Chapel Hill. 
+Copyright © and trademark ™ 2012-14 University of North Carolina at Chapel Hill. 
 All rights reserved.
 
 Permission to use, copy, modify, and distribute this software and its documentation 
@@ -141,10 +141,6 @@ bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunS
                     ros::getGlobalCallbackQueue()->clear();
                     _spinner->start();
                     _fpsTimer.restart();
-                // stop spinner after pausing simulation or after executing step
-                } else if ((!lastItrPaused && _pause) || lastItrStep) {
-                    _spinner->stop();
-                    lastItrStep = false;
                 }
 
                 if (_scene_updated) {
@@ -163,12 +159,20 @@ bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunS
                 }
 
                 if (_scene_updated) {
+                    ROS_INFO("Advance simulation");
                     try {
                         _scene->updateScene(_viewTime);
                         _fpsTimer.lap();
                     } catch (SceneGraph::SystemStopException) {
                         break;
                     }
+                }
+
+                // stop spinner after pausing simulation or after executing step
+                if ((!lastItrPaused && _pause) || lastItrStep) {
+                    ROS_INFO("Stop simulation");
+                    _spinner->stop();
+                    lastItrStep = false;
                 }
 
                 lastItrPaused = _pause;

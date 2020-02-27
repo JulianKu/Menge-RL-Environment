@@ -23,8 +23,11 @@ def main():
         rp.loginfo(info)
         rp.loginfo('Finished cleanly')
         env.close()
+    except KeyboardInterrupt:
+        env.close()
     except Exception as e:
         env.close()
+        print('Exception in main script')
         raise e
 
 

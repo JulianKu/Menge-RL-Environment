@@ -220,7 +220,7 @@ namespace Menge {
             std_msgs::Bool done_msg;
             done_msg.data = true;
 
-			while ( _running ) {
+			while ( _running && ros::ok() ) {
 				SDL_Event e;
 				while ( SDL_PollEvent( &e ) ) {
 					if( e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
@@ -259,14 +259,9 @@ namespace Menge {
                     ros::getGlobalCallbackQueue()->clear();
                     _spinner->start();
 
-                // stop spinner after pausing simulation or after executing step
-                } else if ((!lastItrPaused && _pause) || lastItrStep) {
-                    _spinner->stop();
-                    lastItrStep = false;
-                }
-
                 // start spinner for step + update sim
-                if ( _pause && _step ) {
+                } else if ( _pause && _step ) {
+                    ros::getGlobalCallbackQueue()->clear();
                     _spinner->start();
                     offsetTime(_stepSize);
                     redraw = _update = true;
@@ -275,7 +270,7 @@ namespace Menge {
                 } else if ( !_pause ) startTimer( FULL_FRAME );
 
 				if ( redraw || _update || !_pause ) {
-					
+                    ROS_INFO("Advance simulation");
 					// draw stuff
 					if ( _scene && ( !_pause || _update ) ) {
 						startTimer( SCENE_UPDATE );
@@ -311,6 +306,13 @@ namespace Menge {
 					fullPath << std::setfill( '0' ) << std::setw( 6 ) << ++_imgCount << ".png";
 					snapshotPNG( _width, _height, fullPath.str().c_str() );
 				}
+
+                // stop spinner after pausing simulation or after executing step
+                if ((!lastItrPaused && _pause) || lastItrStep) {
+                    ROS_INFO("Stop simulation");
+                    _spinner->stop();
+                    lastItrStep = false;
+                }
 				_update = false;
 				lastItrPaused = _pause;
 			}

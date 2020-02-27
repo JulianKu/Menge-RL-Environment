@@ -10,7 +10,7 @@ from geometry_msgs.msg import PoseArray, PoseStamped, Twist
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
 from menge_srv.srv import RunSim
-from .utils.ros import pose2array, obstacle2array, marker2array, start_roslaunch_file
+from .utils.ros import pose2array, obstacle2array, marker2array, ROSHandle  #, launch
 from .utils.params import match_in_xml, goal2array
 from .utils.info import *
 from .utils.tracking import Sort, KalmanTracker
@@ -32,7 +32,9 @@ class MengeGym(gym.Env):
 
         super(MengeGym, self).__init__()
         rp.loginfo("Initializing environment")
-
+        self.roshandle = ROSHandle()
+        rp.on_shutdown(self.close)
+        
         assert path.isfile(scenario_xml), 'No valid scenario_xml specified'
         self.scenario_xml = scenario_xml
         self.goals_array = None
@@ -57,10 +59,15 @@ class MengeGym(gym.Env):
         self.clearance_penalty_factor = - self.collision_penalty_obs / self.clearance_dist
 
         rp.loginfo("Start Menge simulator launch file")
-        launch_cli_args = {'project': self.scenario_xml,
-                           'timeout': self.timeout,
-                           'timestep': self.time_step}
-        self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
+        # launch_cli_args = {'project': self.scenario_xml,
+        #                    'timeout': self.timeout,
+        #                    'timestep': self.time_step}
+        # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
+        cli_args = {'p': self.scenario_xml,
+                    'd': self.timeout,
+                    't': self.time_step}
+        self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
+        # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
 
         # simulation controls
         rp.logdebug("Set up publishers and subscribers")
@@ -168,6 +175,8 @@ class MengeGym(gym.Env):
 
         self._take_action(action)
 
+        self.roshandle.log_output()
+
         reward, done, info = self._get_reward_done_info()
 
         # in first iteration, initialize Kalman Tracker for robot
@@ -215,6 +224,7 @@ class MengeGym(gym.Env):
         while not self._advance_sim_srv(1):
             rp.logwarn("Simulation not paused, service failed")
             self._pub_run.publish(Bool(data=False))
+        rp.logdebug("Service called")
         # wait for response from simulation, in the meantime publish cmd_vel
         while not self._step_done or not self._crowd_poses or not self._robot_poses:
             rp.logdebug("Publishing cmd_vel message")
@@ -308,13 +318,21 @@ class MengeGym(gym.Env):
         :return: initial observation (ob return from step)
         """
         rp.loginfo("Env reset - Shutting down simulation process")
-        self._sim_process.terminate()
-        self._sim_process.wait()
+        # self._sim_process.terminate()
+        # self._sim_process.wait()
+        self.roshandle.terminateOne(self._sim_pid)
+        # self._sim_process.shutdown()
+
         rp.loginfo("Env reset - Starting new simulation process")
-        launch_cli_args = {'project': self.scenario_xml,
-                           'timeout': self.timeout,
-                           'timestep': self.time_step}
-        self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
+        # launch_cli_args = {'project': self.scenario_xml,
+        #                    'timeout': self.timeout,
+        #                    'timestep': self.time_step}
+        # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
+        cli_args = {'p': self.scenario_xml,
+                    'd': self.timeout,
+                    't': self.time_step}
+        self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
+        # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
         self.goal = self.goals_array[np.random.randint(len(self.goals_array))]
 
         # perform idle action and return observation
@@ -342,6 +360,6 @@ class MengeGym(gym.Env):
         close the environment
         """
 
-        rp.loginfo("Env close - Shutting down simulation process")
-        self._sim_process.terminate()
-        self._sim_process.wait()
+        rp.loginfo("Env close - Shutting down simulation process and killing roscore")
+        self.roshandle.terminate()
+        # self._sim_process.shutdown()
