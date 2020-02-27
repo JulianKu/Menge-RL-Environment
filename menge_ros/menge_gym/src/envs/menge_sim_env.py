@@ -9,7 +9,7 @@ import rosnode
 from geometry_msgs.msg import PoseArray, PoseStamped, Twist
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
-from menge_core.srv import RunSim
+from menge_srv.srv import RunSim
 from .utils.ros import pose2array, obstacle2array, marker2array, start_roslaunch_file
 from .utils.params import match_in_xml, goal2array
 from .utils.info import *

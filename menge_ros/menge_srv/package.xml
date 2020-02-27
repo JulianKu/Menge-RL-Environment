@@ -1,32 +1,32 @@
 <?xml version="1.0"?>
-<package format="2">
-  <name>menge_gym</name>
-  <version>0.1.0</version>
-  <description>The menge_gym package</description>
+<package>
+  <name>menge_srv</name>
+  <version>0.0.0</version>
+  <description>The menge_srv package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
-  <maintainer email="julian-kunze@gmx.de">Julian Kunze</maintainer>
+  <maintainer email="julian@todo.todo">Julian Kunze</maintainer>
 
 
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>MIT</license>
+  <license>TODO</license>
 
 
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/menge_gym</url> -->
+  <!-- <url type="website">http://wiki.ros.org/menge_srv</url> -->
 
 
   <!-- Author tags are optional, multiple are allowed, one per tag -->
   <!-- Authors do not have to be maintainers, but could be -->
   <!-- Example: -->
   <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
-  <author email="julian-kunze@gmx.de">Julian Kunze</author>
+
 
   <!-- The *depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->
@@ -49,25 +49,9 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_export_depend>message_generation</build_export_depend>
   <build_depend>message_generation</build_depend>
-  <build_depend>genmsg</build_depend>
-<!--  <depend>pylaunch</depend>-->
-<!--  <depend>rosnode</depend>-->
-  <depend>rospy</depend>
-<!--  <depend>roslaunch</depend>-->
-  <depend>std_msgs</depend>
-  <depend>geometry_msgs</depend>
-  <depend>visualization_msgs</depend>
-  <depend>menge_srv</depend>
-  <depend>python3-numpy</depend>
-  <depend>python-argparse</depend>
-  <depend>python3-defusedxml</depend>
+  <build_depend>std_msgs</build_depend>
+  <run_depend>message_runtime</run_depend>
+  <run_depend>std_msgs</run_depend>
 
-  <exec_depend>message_runtime</exec_depend>
-  <!-- The export tag contains other, unspecified, tags -->
-  <export>
-    <!-- Other tools can request additional information be placed here -->
-
-  </export>
 </package>

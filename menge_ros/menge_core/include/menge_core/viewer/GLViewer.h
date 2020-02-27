@@ -63,8 +63,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <ros/spinner.h>
 #include <ros/callback_queue.h>
 #include <std_msgs/Bool.h>
-#include "menge_core/RunSim.h"
-
+#include <menge_srv/RunSim.h>
 
 namespace Menge {
 
@@ -307,7 +306,7 @@ namespace Menge {
 
             void setRunFromMsg(const std_msgs::Bool::ConstPtr& msg);
 
-            bool setStepFromSrv(menge_core::RunSim::Request &req, menge_core::RunSim::Response &res);
+            bool setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunSim::Response &res);
 
 			void addNodeHandle( ros::NodeHandle *nh, ros::CallbackQueue &queue){
 				_nh = nh;

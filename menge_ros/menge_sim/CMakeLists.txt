@@ -6,6 +6,7 @@ project(menge_sim)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   menge_core
+  menge_srv
   roscpp
   rospy
   roslib
@@ -49,7 +50,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS menge_core roscpp rospy std_msgs geometry_msgs roslib
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs roslib
 #  DEPENDS system_lib
 )
 

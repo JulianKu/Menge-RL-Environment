@@ -11,6 +11,9 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   visualization_msgs
+  nav_msgs
+  sensor_msgs
+  menge_srv
   tf
   message_generation
   genmsg
@@ -98,9 +101,9 @@ find_package(TinyXML REQUIRED)
 # )
 
 ## Generate services in the 'srv' folder
-add_service_files(
-  FILES RunSim.srv
-)
+#add_service_files(
+#  FILES RunSim.srv
+#)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -110,9 +113,9 @@ add_service_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES std_msgs
-)
+#generate_messages(
+#  DEPENDENCIES std_msgs
+#)
 
 ###################################
 ## catkin specific configuration ##
@@ -134,9 +137,9 @@ list(REMOVE_DUPLICATES Foo_INCLUDE_DIRS)
 
 
 catkin_package(
-  INCLUDE_DIRS ${Foo_INCLUDE_DIRS}
+  INCLUDE_DIRS include ${Foo_INCLUDE_DIRS}
   LIBRARIES menge 
-  CATKIN_DEPENDS cmake_modules roscpp rospy std_msgs geometry_msgs tf message_runtime
+  CATKIN_DEPENDS cmake_modules roscpp rospy std_msgs geometry_msgs sensor_msgs nav_msgs tf message_runtime
   DEPENDS OpenMP SDL SDL_ttf SDL_image OpenGL PNG TinyXML
 )
 
@@ -145,11 +148,23 @@ catkin_package(
 ## Build ##
 ###########
 
-include_directories(
+include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${Foo_INCLUDE_DIRS}
   ${roscpp_INCLUDE_DIRS}
 )
+
+## Declare a C++ library
+# add_library(menge_sim
+#   src/${PROJECT_NAME}/menge_sim.cpp
+# )
+
+## Add cmake target dependencies of the library
+## as an example, code may need to be generated before libraries
+## either from message generation or dynamic reconfigure
+# add_dependencies(menge_sim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#add_dependencies(NullViewer menge_srv_generate_messages_cpp)
+#add_dependencies(GLViewer menge_srv_generate_messages_cpp)
 
 set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fpermissive" )
 
@@ -161,12 +176,10 @@ file(
 	${PROJECT_SOURCE_DIR}/*.h
 )
 
-
 add_library(
 	menge
 	${source_files}
 )
 
-TARGET_LINK_LIBRARIES(menge ${TinyXML_LIBRARIES} ${OPENGL_LIBRARIES} ${SDL_LIBRARY} ${SDLIMAGE_LIBRARY} ${SDLTTF_LIBRARY} ${PNG_LIBRARY} ${catkin_LIBRARIES})
-
-
+target_link_libraries(menge ${TinyXML_LIBRARIES} ${OPENGL_LIBRARIES} ${SDL_LIBRARY} ${SDLIMAGE_LIBRARY} ${SDLTTF_LIBRARY} ${PNG_LIBRARY} ${catkin_LIBRARIES})
+add_dependencies(menge ${catkin_EXPORTED_TARGETS})

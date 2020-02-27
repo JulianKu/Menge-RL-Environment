@@ -33,6 +33,9 @@
   <!-- Examples: -->
   <!-- Use build_depend for packages you need at compile time: -->
   <build_depend>message_generation</build_depend>
+  <build_depend>menge_srv</build_depend>
+  <build_depend>genmsg</build_depend>
+  <build_depend>visualization_msgs</build_depend>
   <build_export_depend>message_generation</build_export_depend>
   <depend>cmake_modules</depend>
   <depend>roscpp</depend>
@@ -42,6 +45,7 @@
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>tf</depend>
+  <exec_depend>menge_srv</exec_depend>
   <!-- Use buildtool_depend for build tool packages: -->
   <!--   <buildtool_depend>catkin</buildtool_depend> -->
   <!-- Use run_depend for packages you need at runtime: -->

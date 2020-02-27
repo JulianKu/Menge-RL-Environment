@@ -3,7 +3,7 @@
 License
 
 Menge
-Copyright © and trademark ™ 2012-14 University of North Carolina at Chapel Hill. 
+Copyright ï¿½ and trademark ï¿½ 2012-14 University of North Carolina at Chapel Hill. 
 All rights reserved.
 
 Permission to use, copy, modify, and distribute this software and its documentation 
@@ -87,11 +87,12 @@ namespace Menge {
             _pause = !msg->data;
         }
 
-        bool NullViewer::setStepFromSrv(menge_core::RunSim::Request &req, menge_core::RunSim::Response &res) {
-            ROS_DEBUG("Service request received");
+bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunSim::Response &res) {
+            ROS_INFO("Service request received");
             if (_pause) {
                 ros::getGlobalCallbackQueue()->clear();
                 _spinner->start();
+                _fpsTimer.restart();
                 _srv_run_received = true;
                 _srv_num_steps = req.numSteps;
                 _srv_start_time = _viewTime;
