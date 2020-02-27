@@ -1,5 +1,5 @@
 <launch>
-    <arg name="rviz" doc="Activate rviz visualization" default="true"/>
+    <arg name="rviz" doc="Activate rviz visualization" default="false"/>
     <arg name="project" doc="Path to the Menge project xml" />
     <arg name="ped_model" default="!" doc="Which pedestrian model to use [orca, pedsim]" />
     <arg name="timeout" default="!" doc="Maximum duration of simulation (if final state is not achieved.)" />

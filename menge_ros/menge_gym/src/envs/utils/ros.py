@@ -5,7 +5,7 @@ import subprocess
 from numpy import arccos
 
 
-def pose2array(pose: Pose):
+def pose2array(pose: Pose) -> Tuple[float, float, float]:
     """
     extract 2D position and orientation from ROS geometry_msgs/Pose message
 
@@ -19,10 +19,10 @@ def pose2array(pose: Pose):
     # orientation quaternion
     omega = 2 * arccos(pose.orientation.w)
 
-    return [x, y, omega]
+    return x, y, omega
 
 
-def obstacle2array(obs_pose: Pose):
+def obstacle2array(obs_pose: Pose) -> Tuple[float, float]:
     """
     extract 2D position from ROS geometry_msgs/Pose message
 
@@ -33,10 +33,10 @@ def obstacle2array(obs_pose: Pose):
     # only 2D point objects (x,y - no orientation)
     x = obs_pose.position.x
     y = obs_pose.position.y
-    return [x, y]
+    return x, y
 
 
-def marker2array(marker: Marker):
+def marker2array(marker: Marker) -> Tuple[float, float, float, float]:
     """
     extract 2D position, orientation and radius from ROS geometry_msgs/Pose message
 
@@ -52,10 +52,10 @@ def marker2array(marker: Marker):
 
     # radius
     r = marker.scale.x / 2
-    return [x, y, omega, r]
+    return x, y, omega, r
 
 
-def start_roslaunch_file(pkg: str, launchfile: str, launch_cli_args: dict = None) -> subprocess.Popen:
+def start_roslaunch_file(pkg: str, launchfile: str, launch_cli_args: Dict[str, str] = None) -> subprocess.Popen:
     """
     start a ROS launchfile with arguments
 

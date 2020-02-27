@@ -10,7 +10,7 @@ def format__1(digits, num):
 
 
 def format_array(arr: np.ndarray,
-                 row_labels: Union[np.ndarray, List] = [], col_labels: Union[np.ndarray, List] = []):
+                 row_labels: Union[np.ndarray, List] = [], col_labels: Union[np.ndarray, List] = []) -> str:
     """
     turns 2d numpy array into str representation with aligned rows and columns and respective labels
 

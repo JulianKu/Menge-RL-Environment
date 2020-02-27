@@ -344,7 +344,7 @@ namespace Menge {
 		}
 
 		//return true if start and end are visible to each other 
-		float FSM::nearAgentDistance(const Vector2& start, Vector2 end){
+		float FSM::nearAgentDistance(const Vector2& start, const Vector2& end){
 			float distance = start.distance(end);
 			int agtCount = (int)this->_sim->getNumAgents();
 			for ( int a = 0; a < agtCount; ++a ) {
@@ -361,7 +361,7 @@ namespace Menge {
 			return distance;
 		}
 
-		float FSM::intersect(const Vector2& start, Vector2 end, Vector2 circle, float radius){
+		float FSM::intersect(const Vector2& start, const Vector2& end, const Vector2& circle, float radius){
 			double r = radius;
   			double cx = circle._x;
   			double cy = circle._y;
@@ -388,7 +388,7 @@ namespace Menge {
 			return start.distance(end);
   		}
 		//returns true if point lies in between start and end points
-		bool FSM::in_between(Vector2 start, Vector2 point, Vector2 end){
+		bool FSM::in_between(const Vector2& start, const Vector2& point, const Vector2& end){
 			float ac = start.distance(end);
 			float ab = start.distance(point);
 			float bc = point.distance(end);

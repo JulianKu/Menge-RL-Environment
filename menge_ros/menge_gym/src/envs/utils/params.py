@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ElT
 from os.path import isfile
 import numpy as np
 import rospy as rp
-from typing import Union
+from typing import Union, Tuple, List
 
 
 def parseXML(xml_file: str) -> ElT:
@@ -29,7 +29,8 @@ def constraints_fulfilled(constraints: dict = None, attributes: dict = None) -> 
 
 
 def match_in_tree(tree, tag: str = None, attrib_name: str = None,
-                  constraints: dict = None, return_all: bool = False) -> (bool, Union[str, dict]):
+                  constraints: dict = None, return_all: bool = False) \
+        -> Tuple[bool, Union[None, str, dict, List[str], List[dict]]]:
     """
     returns first occurrence of a value in ElementTree that where tag and/or name of attribute match
 
@@ -104,7 +105,7 @@ def match_in_tree(tree, tag: str = None, attrib_name: str = None,
 
 
 def match_in_xml(xml_file, tag: str = None, attrib_name: str = None,
-                 constraints: dict = None, return_all: bool = False) -> Union[str, dict]:
+                 constraints: dict = None, return_all: bool = False) -> Union[str, dict, List[str], List[dict]]:
     """
 
     :param xml_file:        str, path to xml file
