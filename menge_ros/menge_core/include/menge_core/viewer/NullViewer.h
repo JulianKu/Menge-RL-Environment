@@ -123,10 +123,10 @@ namespace Menge {
             void addNodeHandle( ros::NodeHandle *nh, ros::CallbackQueue &queue){
                 _nh = nh;
                 _nh->setCallbackQueue(&queue);
-                _sub_step = _nh->subscribe("step", 1000, &Menge::Vis::NullViewer::setStepFromMsg, this);
-                _sub_run = _nh->subscribe("run", 1000, &Menge::Vis::NullViewer::setRunFromMsg, this);
+                _sub_step = _nh->subscribe("step", 50, &Menge::Vis::NullViewer::setStepFromMsg, this);
+                _sub_run = _nh->subscribe("run", 50, &Menge::Vis::NullViewer::setRunFromMsg, this);
                 _srv_run = _nh->advertiseService("advance_simulation", &Menge::Vis::NullViewer::setStepFromSrv, this);
-                _pub_done = _nh->advertise<std_msgs::Bool>("done", 1);
+                _pub_done = _nh->advertise<std_msgs::Bool>("done", 50);
                 _spinner.reset(new ros::AsyncSpinner(0, &queue));
             }
             /*!

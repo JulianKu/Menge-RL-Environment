@@ -84,10 +84,10 @@ class MengeGym(gym.Env):
         self.combined_state = np.array([], dtype=float)
 
         # rp.Subscriber("crowd_pose", PoseArray, self._crowd_pose_callback)
-        rp.Subscriber("crowd_expansion", MarkerArray, self._crowd_expansion_callback)
-        rp.Subscriber("laser_static_end", PoseArray, self._static_obstacle_callback)
-        rp.Subscriber("pose", PoseStamped, self._robot_pose_callback)
-        rp.Subscriber("done", Bool, self._done_callback)
+        rp.Subscriber("crowd_expansion", MarkerArray, self._crowd_expansion_callback, queue_size=50)
+        rp.Subscriber("laser_static_end", PoseArray, self._static_obstacle_callback, queue_size=50)
+        rp.Subscriber("pose", PoseStamped, self._robot_pose_callback, queue_size=50)
+        rp.Subscriber("done", Bool, self._done_callback, queue_size=50)
 
         # action space
         # from paper RGL for CrowdNav --> 5 speeds (0, v_pref] and 16 headings [0, 2*pi)
@@ -99,7 +99,7 @@ class MengeGym(gym.Env):
         self._angles = np.linspace(-np.pi, np.pi, num_angles, endpoint=True)
         self.action_space = spaces.MultiDiscrete([num_speeds, num_angles])
 
-        self._cmd_vel_pub = rp.Publisher('/cmd_vel', Twist, queue_size=1)
+        self._cmd_vel_pub = rp.Publisher('/cmd_vel', Twist, queue_size=50)
         self._advance_sim_srv = rp.ServiceProxy('/advance_simulation', RunSim)
 
         # initialize time
