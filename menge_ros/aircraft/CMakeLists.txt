@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   menge_core
+  menge_srv
 )
 
 ###################################

@@ -9,13 +9,13 @@ import rosnode
 from geometry_msgs.msg import PoseArray, PoseStamped, Twist
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
-from menge_srv.srv import RunSim
-from .utils.ros import pose2array, obstacle2array, marker2array, ROSHandle  #, launch
+from menge_srv.srv import RunSim, CmdVel, CmdVelResponse
+from .utils.ros import obstacle2array, marker2array, ROSHandle  # ,pose2array, launch
 from .utils.params import match_in_xml, goal2array
 from .utils.info import *
 from .utils.tracking import Sort, KalmanTracker
 from .utils.format import format_array
-from typing import List
+from typing import List, Union
 
 
 class MengeGym(gym.Env):
@@ -98,9 +98,11 @@ class MengeGym(gym.Env):
         num_angles = num_angles // 2 * 2 + 1
         self._angles = np.linspace(-np.pi, np.pi, num_angles, endpoint=True)
         self.action_space = spaces.MultiDiscrete([num_speeds, num_angles])
+        self._action = None  # type: Union[None, np.ndarray]
 
-        self._cmd_vel_pub = rp.Publisher('/cmd_vel', Twist, queue_size=50)
-        self._advance_sim_srv = rp.ServiceProxy('/advance_simulation', RunSim)
+        # self._cmd_vel_pub = rp.Publisher('/cmd_vel', Twist, queue_size=50)
+        self._cmd_vel_srv = rp.Service('cmd_vel_srv', CmdVel, self._cmd_vel_srv_handler)
+        self._advance_sim_srv = rp.ServiceProxy('advance_simulation', RunSim)
 
         # initialize time
         # self._run_duration = rp.Duration(self.time_step)
@@ -166,6 +168,20 @@ class MengeGym(gym.Env):
         rp.logdebug('Done message received')
         self._step_done = msg.data
 
+    def _cmd_vel_srv_handler(self, request):
+        # in menge_ros the published angle defines an angle increment
+        if self._action is not None:
+            cmd_vel_msg = Twist()
+            cmd_vel_msg.linear.x = self._velocities[self._action[0]]  # vel_action
+            cmd_vel_msg.linear.y = 0
+            cmd_vel_msg.linear.z = 0
+            cmd_vel_msg.angular.x = 0
+            cmd_vel_msg.angular.y = 0
+            cmd_vel_msg.angular.z = self._angles[self._action[1]]  # angle_action
+            return CmdVelResponse(True, cmd_vel_msg)
+        else:
+            return CmdVelResponse(False, Twist())
+
     def step(self, action: np.ndarray):
         rp.logdebug("Performing step in the environment")
 
@@ -187,7 +203,7 @@ class MengeGym(gym.Env):
         for (robot_pose, crowd_pose) in zip(self._robot_poses, self._crowd_poses):
             rp.logdebug("Robot Pose (Shape %r):\n %r" % (robot_pose.shape, robot_pose))
             rp.logdebug("Crowd Pose (Shape %r):\n %r" % (crowd_pose.shape, crowd_pose))
-            state = np.concatenate((robot_pose[:, :3], crowd_pose[:, :3]), axis=0)
+            # state = np.concatenate((robot_pose[:, :3], crowd_pose[:, :3]), axis=0)
             ped_trackers = self.ped_tracker.update(crowd_pose[:, :3])
             self.rob_tracker.predict()
             self.rob_tracker.update(robot_pose[:, :3])
@@ -210,14 +226,7 @@ class MengeGym(gym.Env):
         """
         rp.logdebug("Taking action")
 
-        # in menge_ros the published angle defines an angle increment
-        vel_msg = Twist()
-        vel_msg.linear.x = self._velocities[action[0]]  # vel_action
-        vel_msg.linear.y = 0
-        vel_msg.linear.z = 0
-        vel_msg.angular.x = 0
-        vel_msg.angular.y = 0
-        vel_msg.angular.z = self._angles[action[1]]  # angle_action
+        self._action = action
 
         rp.logdebug("Calling Service")
         # advance simulation by one step
@@ -227,12 +236,14 @@ class MengeGym(gym.Env):
         rp.logdebug("Service called")
         # wait for response from simulation, in the meantime publish cmd_vel
         while not self._step_done or not self._crowd_poses or not self._robot_poses:
-            rp.logdebug("Publishing cmd_vel message")
-            self._cmd_vel_pub.publish(vel_msg)
+            # rp.logdebug("Publishing cmd_vel message")
+            # self._cmd_vel_pub.publish(vel_msg)
+            rp.logdebug('Simulation not done yet')
             rp.logdebug('Done %r, #Crowd %d, #Rob %d' % (self._step_done, len(self._crowd_poses), len(self._robot_poses)))
             self._rate.sleep()
         rp.logdebug('Done %r, #Crowd %d, #Rob %d' % (self._step_done, len(self._crowd_poses), len(self._robot_poses)))
         self._step_done = False
+        self._action = None
 
         # self._pub_run.publish(Bool(data=True))
         # current_time = start_time = rp.Time.now()

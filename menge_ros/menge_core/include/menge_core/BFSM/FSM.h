@@ -68,6 +68,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
+#include <menge_srv/CmdVel.h>
 
 #include <map>
 #include <iostream>
@@ -392,7 +393,7 @@ namespace Menge {
 			 */
 			void addNodeHandle( ros::NodeHandle *nh){
 				_nh = nh;
-				_sub = _nh->subscribe("cmd_vel", 50, &Menge::BFSM::FSM::setPrefVelFromMsg, this);
+//				_sub = _nh->subscribe("cmd_vel", 50, &Menge::BFSM::FSM::setPrefVelFromMsg, this);
 				_pub_crowd = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose", 50);
 				_pub_crowd_all = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose_all", 50);
 				_pub_crowd_marker = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion", 50);
@@ -403,6 +404,8 @@ namespace Menge {
 				_pub_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_end", 50);
                 _pub_static_scan = _nh->advertise<sensor_msgs::LaserScan>("static_scan", 50);
                 _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50);
+                _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv");
+
 			}
 			/*!
 			 *	@brief		return ROS node handle
@@ -450,11 +453,17 @@ namespace Menge {
 			 *	@brief		A list of velocity modifiers to be applied to all states in the simulator
 			 */
 			std::vector< VelModifier * >	_velModifiers;
+
+//			/*!
+//			 *  @brief      Flag is set if message has been called
+//			 */
+//			bool _msg_called = false;
+
 			/*!
 			 *	@brief		ROS node handle
 			 */			
 			ros::NodeHandle *_nh;
-			ros::Subscriber _sub;
+//			ros::Subscriber _sub;
 			ros::Publisher _pub_crowd;
 			ros::Publisher _pub_crowd_all;
 			ros::Publisher _pub_crowd_marker;
@@ -465,6 +474,7 @@ namespace Menge {
 			ros::Publisher _pub_endpoints;
             ros::Publisher _pub_static_scan;
             ros::Publisher _pub_static_endpoints;
+            ros::ServiceClient _cmd_vel_srv_client;
 			Agents::PrefVelocity prefVelMsg;
 			std::vector< size_t > _robotIDList;
 		};

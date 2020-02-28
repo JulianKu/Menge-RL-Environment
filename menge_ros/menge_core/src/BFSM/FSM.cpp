@@ -143,19 +143,20 @@ namespace Menge {
 
 		/////////////////////////////////////////////////////////////////////
 		 
-		void FSM::setPrefVelFromMsg( const geometry_msgs::Twist& msg){
-			//copy from message and into PrefVelmsg
-			ROS_INFO("I heard: linear x :[%f]", msg.linear.x);
-   			ROS_INFO("I heard: angular z :[%f]", msg.angular.z);
-
-   			// TODO: make robot non-holonomic here
-
-			float speed = msg.linear.x;
-			if(speed == 0) speed = 0.0001;
-
-			prefVelMsg.setSpeed(speed);
-			prefVelMsg.turn(msg.angular.z);
-		}
+//		void FSM::setPrefVelFromMsg( const geometry_msgs::Twist& msg){
+//		    _msg_called = true;
+//			//copy from message and into PrefVelmsg
+//			ROS_INFO("I heard: linear x :[%f]", msg.linear.x);
+//   			ROS_INFO("I heard: angular z :[%f]", msg.angular.z);
+//
+//   			// TODO: make robot non-holonomic here
+//
+//			float speed = msg.linear.x;
+//			if(speed == 0) speed = 0.0001;
+//
+//			prefVelMsg.setSpeed(speed);
+//			prefVelMsg.turn(msg.angular.z);
+//		}
 
 		void FSM::computePrefVelocity( Agents::BaseAgent * agent ) {
 			const size_t ID = agent->_id;
@@ -210,7 +211,31 @@ namespace Menge {
 				//std::cout << "Before spin "<< std::endl;
                 ROS_INFO("speed before: [%f]", prefVelMsg.getSpeed());
                 ROS_INFO("preferred before: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
-				ros::spinOnce();
+//                int debug_counter = 0;
+//                while (!_msg_called) {
+//                    debug_counter += 1;
+//                    ros::spinOnce();
+//                }
+//                ROS_INFO("ROS spinOnce called [%u] times", debug_counter);
+//				_msg_called = false;
+                menge_srv::CmdVel cmd_vel_srv;
+                if (_cmd_vel_srv_client.call(cmd_vel_srv)) {
+                    if (cmd_vel_srv.response.success) {
+                        geometry_msgs::Twist msg;
+                        msg = cmd_vel_srv.response.cmd_vel;
+                        ROS_INFO("From srv got linear x :[%f]", msg.linear.x);
+                        ROS_INFO("From srv got angular z :[%f]", msg.angular.z);
+
+                        // TODO: make robot non-holonomic here
+
+                        float speed = msg.linear.x;
+                        if(speed == 0) speed = 0.0001;
+
+                        prefVelMsg.setSpeed(speed);
+                        prefVelMsg.turn(msg.angular.z);
+                    }
+                }
+
                 //std::cout << "After spin "<< std::endl;
                 ROS_INFO("speed after: [%f]", prefVelMsg.getSpeed());
                 ROS_INFO("preferred after: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
