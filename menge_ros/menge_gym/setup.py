@@ -15,7 +15,7 @@ setup_args = generate_distutils_setup(
 setup(
     install_requires=[
         'gym',
-        'numpy',
+        'numpy>=1.15.0',
         'scipy',
         'scikit-learn',
         'filterpy',

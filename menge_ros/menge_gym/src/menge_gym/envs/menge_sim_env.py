@@ -229,6 +229,10 @@ class MengeGym(gym.Env):
         self._action = action
 
         rp.logdebug("Calling Service")
+
+        # Not sure why, but advance_sim service kept getting stuck (not reaching simulator node)
+        # sleep is a working hack around this, not nice though
+        self._rate.sleep()
         # advance simulation by one step
         while not self._advance_sim_srv(1):
             rp.logwarn("Simulation not paused, service failed")
@@ -261,10 +265,10 @@ class MengeGym(gym.Env):
         """
 
         # crowd_pose = [x, y, omega, r]
-        recent_crowd_pose = self._crowd_poses[-1]
+        recent_crowd_pose = self._crowd_poses[-1].reshape(-1, 4)
 
         # obstacle_position = [x, y]
-        obstacle_position = self._static_obstacles
+        obstacle_position = self._static_obstacles.reshape(-1, 2)
 
         # robot_pose = [x, y, omega]
         recent_robot_pose = self._robot_poses[-1]
@@ -278,9 +282,9 @@ class MengeGym(gym.Env):
 
         obstacle_distances = np.linalg.norm(obstacle_position - recent_robot_pose[:, :2], axis=1) - robot_radius
 
-        d_min_crowd = crowd_distances.min()
+        d_min_crowd = crowd_distances.min(initial=0)
 
-        d_min_obstacle = obstacle_distances.min()
+        d_min_obstacle = obstacle_distances.min(initial=0)
 
         d_goal = np.linalg.norm(recent_robot_pose[:, :2] - goal[:2]) - robot_radius - goal[-1]
 
