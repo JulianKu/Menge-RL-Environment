@@ -60,9 +60,14 @@
   <depend>geometry_msgs</depend>
   <depend>visualization_msgs</depend>
   <depend>menge_srv</depend>
-  <depend>python3-numpy</depend>
-  <depend>python-argparse</depend>
-  <depend>python3-defusedxml</depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  <exec_depend>python3-sklearn</exec_depend>
+  <exec_depend>python-argparse</exec_depend>
+  <exec_depend>python3-defusedxml</exec_depend>
+  <exec_depend>python3-psutil</exec_depend>
+  <exec_depend>gym</exec_depend>
+
 
   <exec_depend>message_runtime</exec_depend>
   <!-- The export tag contains other, unspecified, tags -->
