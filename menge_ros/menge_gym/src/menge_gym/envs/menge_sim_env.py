@@ -146,12 +146,12 @@ class MengeGym(gym.Env):
         rp.logdebug('Crowd Expansion subscriber callback called')
         pose_array = np.array(list(map(marker2array, msg.markers)))
         # update list of crowd poses + pointer to current position
-        self._crowd_poses.append(pose_array)
+        self._crowd_poses.append(pose_array.reshape(-1, 4))
 
     def _static_obstacle_callback(self, msg: PoseArray):
         rp.logdebug('Static Obstacle subscriber callback called')
         # transform PoseArray message to numpy array
-        self._static_obstacles = np.array(list(map(obstacle2array, msg.poses)))
+        self._static_obstacles = np.array(list(map(obstacle2array, msg.poses))).reshape(-1, 2)
 
     def _robot_pose_callback(self, msg: PoseStamped):
         rp.logdebug('Robot Pose subscriber callback called')
@@ -267,10 +267,10 @@ class MengeGym(gym.Env):
         """
 
         # crowd_pose = [x, y, omega, r]
-        recent_crowd_pose = self._crowd_poses[-1].reshape(-1, 4)
+        recent_crowd_pose = self._crowd_poses[-1]
 
         # obstacle_position = [x, y]
-        obstacle_position = self._static_obstacles.reshape(-1, 2)
+        obstacle_position = self._static_obstacles
 
         # robot_pose = [x, y, omega]
         recent_robot_pose = self._robot_poses[-1]
