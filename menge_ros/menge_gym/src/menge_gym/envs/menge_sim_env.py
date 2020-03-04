@@ -11,7 +11,7 @@ from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
 from menge_srv.srv import RunSim, CmdVel, CmdVelResponse
 from .utils.ros import obstacle2array, marker2array, ROSHandle  # ,pose2array, launch
-from .utils.params import match_in_xml, goal2array
+from .utils.params import match_in_xml, goal2array, get_robot_initial_position
 from .utils.info import *
 from .utils.tracking import Sort, KalmanTracker
 from .utils.format import format_array
@@ -34,13 +34,18 @@ class MengeGym(gym.Env):
         rp.loginfo("Initializing environment")
         self.roshandle = ROSHandle()
         rp.on_shutdown(self.close)
-        
+
         assert path.isfile(scenario_xml), 'No valid scenario_xml specified'
         self.scenario_xml = scenario_xml
+        self.scene_xml = None
+        self.behavior_xml = None
+        self.initial_robot_pos = None
         self.goals_array = None
         self.goal = None
         self.robot_radius = None
         self._initialize_from_simulator()
+        # sample first goal
+        self.sample_goal(exclude_initial=True)
 
         self.timeout = 120
         self.time_step = 0.05  # do 50 ms step
@@ -114,23 +119,41 @@ class MengeGym(gym.Env):
 
         scene_xml = match_in_xml(scenario_xml, attrib_name='scene')
         if not path.isabs(scene_xml):
-            scene_xml = path.join(scenario_dir, scene_xml)
-        assert path.isfile(scene_xml), 'Scene file specified in scenario_xml non-existent'
+            self.scene_xml = path.join(scenario_dir, scene_xml)
+        assert path.isfile(self.scene_xml), 'Scene file specified in scenario_xml non-existent'
 
         # extract robot radius from behavior_xml file
-        self.robot_radius = float(match_in_xml(scene_xml, tag="Common", attrib_name="r", constraints={"external": "1"}))
+        self.robot_radius = float(
+            match_in_xml(self.scene_xml, tag="Common", attrib_name="r", constraints={"external": "1"}))
 
         behavior_xml = match_in_xml(scenario_xml, attrib_name='behavior')
         if not path.isabs(behavior_xml):
-            behavior_xml = path.join(scenario_dir, behavior_xml)
-        assert path.isfile(behavior_xml), 'Behavior file specified in scenario_xml non-existent'
+            self.behavior_xml = path.join(scenario_dir, behavior_xml)
+        assert path.isfile(self.behavior_xml), 'Behavior file specified in scenario_xml non-existent'
 
         # extract goal set from behavior file
-        goals = match_in_xml(behavior_xml, tag="Goal", return_all=True)
-        goals_array = np.array(list(map(goal2array, goals)))
-        # sample random goal
+        goals = match_in_xml(self.behavior_xml, tag="Goal", return_all=True)
+        self.goals_array = np.array(list(map(goal2array, goals)))
+
+    def sample_goal(self, exclude_initial: bool = False):
+        """
+        sample goal from available goals and set "goal" attribute accordingly
+
+        :param exclude_initial:     bool, if True exclude a goal from sampling
+                                          if the robot's initial position lies within this goal
+        """
+        goals_array = self.goals_array
+        if exclude_initial:
+            if self.initial_robot_pos is None:
+                self.initial_robot_pos = get_robot_initial_position(self.scene_xml)
+            # if initial robot position falls within goal, exclude this goal from sampling
+            dist_rob_goals = np.linalg.norm(goals_array[:, :2] - self.initial_robot_pos, axis=1) - goals_array[:, 2] \
+                             - self.robot_radius
+            # mask out respective goal(s)
+            mask = dist_rob_goals > 0
+            goals_array = goals_array[mask]
+
         self.goal = goals_array[np.random.randint(len(goals_array))]
-        self.goals_array = goals_array
 
     # def _crowd_pose_callback(self, msg: PoseArray):
     #     # transform PoseArray message to numpy array
@@ -361,7 +384,9 @@ class MengeGym(gym.Env):
                     't': self.time_step}
         self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
         # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
-        self.goal = self.goals_array[np.random.randint(len(self.goals_array))]
+
+        # Sample new goal
+        self.sample_goal(exclude_initial=True)
 
         # perform idle action and return observation
         return self.step(np.array([0, np.median(range(self.action_space.nvec[1]))], dtype=np.int32))[0]
