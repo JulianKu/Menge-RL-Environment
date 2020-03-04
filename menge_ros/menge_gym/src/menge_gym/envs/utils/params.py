@@ -5,7 +5,7 @@ import rospy as rp
 from typing import Union, Tuple, List
 
 
-def parseXML(xml_file: str) -> ElT:
+def parseXML(xml_file: str) -> ElT.Element:
     """
     parse an xml file
 
@@ -28,7 +28,7 @@ def constraints_fulfilled(constraints: dict = None, attributes: dict = None) -> 
         return False
 
 
-def match_in_tree(tree, tag: str = None, attrib_name: str = None,
+def match_in_tree(tree: ElT.Element, tag: str = None, attrib_name: str = None,
                   constraints: dict = None, return_all: bool = False) \
         -> Tuple[bool, Union[None, str, dict, List[str], List[dict]]]:
     """
@@ -104,7 +104,7 @@ def match_in_tree(tree, tag: str = None, attrib_name: str = None,
         return False, results
 
 
-def match_in_xml(xml_file, tag: str = None, attrib_name: str = None,
+def match_in_xml(xml_file: str, tag: str = None, attrib_name: str = None,
                  constraints: dict = None, return_all: bool = False) -> Union[str, dict, List[str], List[dict]]:
     """
 
@@ -162,4 +162,17 @@ def goal2array(goal: dict) -> np.ndarray:
     else:
         raise ValueError("invalid GoalType")
 
-    return np.array([center_x, center_y, radius])
+    return np.array((center_x, center_y, radius))
+
+
+def get_robot_initial_position(scene_xml: str) -> np.ndarray:
+    """
+
+    :param scene_xml:       str, path to scene xml file
+    :return:                numpy array containing the robot's initial x, y coordinates
+    """
+    root = parseXML(scene_xml)
+    robot_attributes = root.findall("AgentGroup/ProfileSelector[@name='robot']/../Generator/Agent")[0].attrib
+    x = float(robot_attributes['p_x'])
+    y = float(robot_attributes['p_y'])
+    return np.array((x, y)).reshape(-1, 2)
