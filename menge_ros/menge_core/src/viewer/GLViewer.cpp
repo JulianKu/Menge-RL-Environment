@@ -193,7 +193,7 @@ namespace Menge {
         }
 
         bool GLViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunSim::Response &res) {
-            ROS_INFO("Service request received");
+            ROS_DEBUG("Service request received");
 		    if (_pause) {
                 ros::getGlobalCallbackQueue()->clear();
                 _spinner->start();
@@ -246,7 +246,9 @@ namespace Menge {
 				if (_srv_run_received) {
 				    if (_viewTime < _srv_start_time + _srv_num_steps * _stepSize) {
 				        _pause = false;
+                        ROS_DEBUG("Unpause after service call");
 				    } else {
+                        ROS_DEBUG("Pause after simulation sufficiently advanced");
 				        _pause = true;
 				        _srv_run_received = false;
                         _pub_done.publish(done_msg);
@@ -261,6 +263,7 @@ namespace Menge {
 
                 // start spinner for step + update sim
                 } else if ( _pause && _step ) {
+                    ROS_DEBUG("Perform single simulation step");
                     ros::getGlobalCallbackQueue()->clear();
                     _spinner->start();
                     offsetTime(_stepSize);
@@ -270,7 +273,6 @@ namespace Menge {
                 } else if ( !_pause ) startTimer( FULL_FRAME );
 
 				if ( redraw || _update || !_pause ) {
-                    ROS_INFO("Advance simulation");
 					// draw stuff
 					if ( _scene && ( !_pause || _update ) ) {
 						startTimer( SCENE_UPDATE );
@@ -309,7 +311,6 @@ namespace Menge {
 
                 // stop spinner after pausing simulation or after executing step
                 if ((!lastItrPaused && _pause) || lastItrStep) {
-                    ROS_INFO("Stop simulation");
                     _spinner->stop();
                     lastItrStep = false;
                 }

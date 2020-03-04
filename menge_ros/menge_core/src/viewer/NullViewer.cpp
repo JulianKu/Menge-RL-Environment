@@ -88,7 +88,7 @@ namespace Menge {
         }
 
 bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunSim::Response &res) {
-            ROS_INFO("Service request received");
+            ROS_DEBUG("Service request received");
             if (_pause) {
                 ros::getGlobalCallbackQueue()->clear();
                 _spinner->start();
@@ -128,6 +128,7 @@ bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunS
                 if (_srv_run_received) {
                     if (_viewTime < _srv_start_time + _srv_num_steps * _stepSize) {
                         _pause = false;
+                        ROS_DEBUG("Unpause after service call");
                     } else {
                         _pause = true;
                         _srv_run_received = false;
@@ -148,6 +149,7 @@ bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunS
                 }
                 // make simulation step if requested
                 if (_pause && _step) {
+                    ROS_DEBUG("Perform single simulation step");
                     _spinner->start();
                     _viewTime += _stepSize;
                     _scene_updated = true;

@@ -58,7 +58,7 @@ class MengeGym(gym.Env):
         self.clearance_dist = 0.5
         self.clearance_penalty_factor = - self.collision_penalty_obs / self.clearance_dist
 
-        rp.loginfo("Start Menge simulator launch file")
+        rp.loginfo("Start Menge simulator node")
         # launch_cli_args = {'project': self.scenario_xml,
         #                    'timeout': self.timeout,
         #                    'timestep': self.time_step}
@@ -243,9 +243,11 @@ class MengeGym(gym.Env):
             # rp.logdebug("Publishing cmd_vel message")
             # self._cmd_vel_pub.publish(vel_msg)
             rp.logdebug('Simulation not done yet')
-            rp.logdebug('Done %r, #Crowd %d, #Rob %d' % (self._step_done, len(self._crowd_poses), len(self._robot_poses)))
+            rp.logdebug('Done %r, #Crowd %d, #Rob %d' %
+                        (self._step_done, len(self._crowd_poses), len(self._robot_poses)))
             self._rate.sleep()
-        rp.logdebug('Done %r, #Crowd %d, #Rob %d' % (self._step_done, len(self._crowd_poses), len(self._robot_poses)))
+        rp.logdebug('Done %r, #Crowd %d, #Rob %d' %
+                    (self._step_done, len(self._crowd_poses), len(self._robot_poses)))
         self._step_done = False
         self._action = None
 
@@ -368,7 +370,7 @@ class MengeGym(gym.Env):
             rp.loginfo('\n' + trackers_str)
         else:
             rp.logwarn("No objects tracked")
-        rp.loginfo('\nNumber of statics obstacles: %d\n' % len(self._static_obstacles))
+        rp.loginfo('\nNumber of static obstacles: %d\n' % len(self._static_obstacles))
 
     def close(self):
         """
