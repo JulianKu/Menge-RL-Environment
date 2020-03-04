@@ -32,7 +32,7 @@ class KalmanTracker(object):
         """
         Initialises a tracker using initial coordinates.
 
-        @:param coords: initial 2D coordinates (x, y) of the object to be tracked
+        @:param coords: initial 2D coordinates (x, y, omega) of the object to be tracked
         """
         # define constant velocity model
         self.kf = KalmanFilter(dim_x=6, dim_z=3)
@@ -63,7 +63,7 @@ class KalmanTracker(object):
         """
         Updates the state vector with observed coordinates.
 
-        @:param coords: updated 2D coordinates (x, y) of the object to be tracked
+        @:param coords: updated 2D coordinates (x, y, omega) of the object to be tracked
         """
         self.time_since_update = 0
         self.history = []
@@ -99,6 +99,9 @@ def associate_detections_to_trackers(detections: np.ndarray, trackers: np.ndarra
     """
     if len(trackers) == 0:
         return np.empty((0, 2), dtype=int), np.arange(len(detections)), np.empty((0, 3), dtype=int)
+    elif len(detections) == 0:
+        return np.empty((0, 2), dtype=int), np.empty((0, 3), dtype=int), np.arange(len(trackers))
+
     distance_matrix = euclidean_distances(detections, trackers)
     row_matched_indices, col_matched_indices = linear_sum_assignment(distance_matrix)
 
@@ -140,7 +143,7 @@ class Sort(object):
     def update(self, dets: np.ndarray) -> np.ndarray:
         """
         @:param: dets - a numpy array of detections in the format [[x,y,phi],[x,y,phi],...]
-        :reqires: this method must be called once for each frame even with empty detections.
+        :requires: this method must be called once for each frame even with empty detections.
         :return: numpy array for the states [x,y,omega,x_dot,y_dot,omega_dot] of the tracked objects,
         where the last column is the object ID.
 

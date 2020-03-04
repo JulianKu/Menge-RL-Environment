@@ -282,11 +282,22 @@ class MengeGym(gym.Env):
         crowd_distances -= recent_crowd_pose[:, -1]
         crowd_distances -= robot_radius
 
-        obstacle_distances = np.linalg.norm(obstacle_position - recent_robot_pose[:, :2], axis=1) - robot_radius
+        obstacle_distances = np.linalg.norm(obstacle_position - recent_robot_pose[:, :2], axis=1)
+        obstacle_distances -= robot_radius
 
-        d_min_crowd = crowd_distances.min(initial=0)
+        # compute distance to closest pedestrian
+        if crowd_distances.size == 0:
+            # if no pedestrian, set to infinity
+            d_min_crowd = np.inf
+        else:
+            d_min_crowd = crowd_distances.min()
 
-        d_min_obstacle = obstacle_distances.min(initial=0)
+        # compute distance to closest static obstacle
+        if obstacle_distances.size == 0:
+            # if no obstacles, set to infinity
+            d_min_obstacle = np.inf
+        else:
+            d_min_obstacle = obstacle_distances.min()
 
         d_goal = np.linalg.norm(recent_robot_pose[:, :2] - goal[:2]) - robot_radius - goal[-1]
 
