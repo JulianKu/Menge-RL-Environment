@@ -141,7 +141,7 @@ namespace Menge {
 			}
 		}
 
-		/////////////////////////////////////////////////////////////////////
+/*		/////////////////////////////////////////////////////////////////////
 		 
 //		void FSM::setPrefVelFromMsg( const geometry_msgs::Twist& msg){
 //		    _msg_called = true;
@@ -156,7 +156,7 @@ namespace Menge {
 //
 //			prefVelMsg.setSpeed(speed);
 //			prefVelMsg.turn(msg.angular.z);
-//		}
+//		}*/
 
 		void FSM::computePrefVelocity( Agents::BaseAgent * agent ) {
 			const size_t ID = agent->_id;
@@ -209,8 +209,8 @@ namespace Menge {
 				//std::cout << "External Agent detected : " << ID << std::endl;
 				prefVelMsg.setSpeed(0.0);
 				//std::cout << "Before spin "<< std::endl;
-                ROS_INFO("speed before: [%f]", prefVelMsg.getSpeed());
-                ROS_INFO("preferred before: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
+//                ROS_INFO("speed before: [%f]", prefVelMsg.getSpeed());
+//                ROS_INFO("preferred before: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
 //                int debug_counter = 0;
 //                while (!_msg_called) {
 //                    debug_counter += 1;
@@ -223,8 +223,8 @@ namespace Menge {
                     if (cmd_vel_srv.response.success) {
                         geometry_msgs::Twist msg;
                         msg = cmd_vel_srv.response.cmd_vel;
-                        ROS_INFO("From srv got linear x :[%f]", msg.linear.x);
-                        ROS_INFO("From srv got angular z :[%f]", msg.angular.z);
+//                        ROS_INFO("From srv got linear x :[%f]", msg.linear.x);
+//                        ROS_INFO("From srv got angular z :[%f]", msg.angular.z);
 
                         // TODO: make robot non-holonomic here
 
@@ -238,7 +238,7 @@ namespace Menge {
 
                 //std::cout << "After spin "<< std::endl;
                 ROS_INFO("speed after: [%f]", prefVelMsg.getSpeed());
-                ROS_INFO("preferred after: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
+                ROS_INFO("preferred dir after: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
 
 				newVel = prefVelMsg;
 
@@ -559,6 +559,7 @@ namespace Menge {
 				Agents::BaseAgent * agt = this->_sim->getAgent( a );
 				
 				if(agt->_isExternal){
+                    ROS_INFO("agent orientation: x: [%f], y: [%f]", agt->_orient._x, agt->_orient._y);
 //                    ros::Time scan_time = ros::Time::now();
 					geometry_msgs::Pose pose;
 				
