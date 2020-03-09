@@ -641,6 +641,14 @@ namespace Menge {
 				}
 			}
 
+			// Delete all previous markers
+            visualization_msgs::Marker marker;
+            marker.header.stamp = current_time;
+            marker.header.frame_id = "map";
+            marker.ns = "agent_expansion";
+            marker.action = visualization_msgs::Marker::DELETEALL;
+            crowd_expansion_all.markers.push_back(marker);
+            crowd_expansion.markers.push_back(marker);
 
 			// Compute and publish the crowd positions that is visible to the robot via laser scan
 			for ( int a = 0; a < agtCount; ++a ) {
@@ -658,7 +666,7 @@ namespace Menge {
 				marker.header.frame_id = "map";
 				marker.ns = "agent_expansion";
 				marker.action = visualization_msgs::Marker::ADD;
-				marker.type = visualization_msgs::Marker::SPHERE;
+				marker.type = visualization_msgs::Marker::CYLINDER;
 				marker.color.a = 1.0;
                 marker.color.r = 1.0;
                 marker.color.g = 0.1;
@@ -666,7 +674,7 @@ namespace Menge {
 				marker.pose = pose;
 				marker.scale.x = 2 * agent_radius;
 				marker.scale.y = 2 * agent_radius;
-				marker.scale.z = 0.1;
+				marker.scale.z = 0.5;
 				if(!agt->_isExternal){
 					crowd_all.poses.push_back(pose);
                     marker.id = 2 * a;  // FOV independent markers even odd id

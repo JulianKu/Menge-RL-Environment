@@ -133,13 +133,18 @@ namespace Menge {
 			 */
 			void initialize();
 
-			/*!
-			 *  @brief      Updates the two-dimensional position and two-dimensional
-			 *              velocity of this agent.
-			 *
-			 *	@param		timeStep		The time step that will be taken.
-			 */
-			void update( float timeStep );
+            /*!
+             @brief      Updates the two-dimensional position and two-dimensional velocity of this agent.
+             @param    timeStep    The time step that will be taken.
+             */
+            void update(float timeStep);
+
+            /*!
+             @brief    Updates the orientation.
+             This is guaranteed to be called after the current velocity and position have been integrated.
+             @param    timeStep    The duration of the simulation time step.
+             */
+            virtual void updateOrient(float timeStep);
 
 			/*!
 			 *	@brief		Given preferred velocity and neighboring agents and obstacles
