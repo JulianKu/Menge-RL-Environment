@@ -15,11 +15,12 @@ setup_args = generate_distutils_setup(
 setup(
     install_requires=[
         'gym',
-        'numpy>=1.15.0',
+        'numpy',
         'scipy',
         'scikit-learn',
         'filterpy',
-        'psutil'
+        'psutil',
+        'tqdm'
     ],
     extras_require={
         'test': [

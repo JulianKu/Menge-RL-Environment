@@ -6,6 +6,7 @@ import numpy as np
 from os import path
 import rospy as rp
 import rosnode
+import rospkg
 from geometry_msgs.msg import PoseArray, PoseStamped, Twist
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
@@ -33,6 +34,15 @@ class MengeGym(gym.Env):
         super(MengeGym, self).__init__()
         rp.loginfo("Initializing environment")
         self.roshandle = ROSHandle()
+
+        # TODO: rviz config not loaded properly (workaround: start rviz seperately via launch file etc.)
+        # visualization = True
+        # if visualization:
+        #     # Get rviz configuration file from "menge_vis" package
+        #     rviz_path = path.join(path.join(rospkg.RosPack().get_path("menge_vis"), "rviz"), "menge_ros.rviz")
+        #     # Start rviz rosnode
+        #     self.roshandle.start_rosnode('rviz', 'rviz', launch_cli_args={"d": rviz_path})
+
         rp.on_shutdown(self.close)
 
         assert path.isfile(scenario_xml), 'No valid scenario_xml specified'
@@ -101,7 +111,8 @@ class MengeGym(gym.Env):
         # linearly distributed angles
         # make num_angles odd to ensure null action (0 --> not changing steering)
         num_angles = num_angles // 2 * 2 + 1
-        self._angles = np.linspace(-np.pi, np.pi, num_angles, endpoint=True)
+        # angles between -45° und +45° in contrast to paper between -pi and +pi
+        self._angles = np.linspace(-np.pi/4, np.pi/4, num_angles, endpoint=True)
         self.action_space = spaces.MultiDiscrete([num_speeds, num_angles])
         self._action = None  # type: Union[None, np.ndarray]
 

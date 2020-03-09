@@ -66,7 +66,8 @@
   <exec_depend>python-argparse</exec_depend>
   <exec_depend>python3-defusedxml</exec_depend>
   <exec_depend>python3-psutil</exec_depend>
-  <exec_depend>gym</exec_depend>
+  <exec_depend>python-tqdm</exec_depend>
+  <exec_depend>gym-pip</exec_depend>
 
 
   <exec_depend>message_runtime</exec_depend>
