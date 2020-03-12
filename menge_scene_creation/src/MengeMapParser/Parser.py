@@ -7,6 +7,7 @@ import os
 import matplotlib.pyplot as plt
 from skimage import measure, draw
 from skimage.morphology import skeletonize
+from typing import Union
 from .ParserUtils.contours_manipulation import remove_inner_contours, approximate_contours
 from .ParserUtils.utils import make_img_binary, str2bool
 from .ParserUtils.markup_utils import xml_indentation, read_yaml, dict2etree
@@ -22,7 +23,7 @@ class MengeMapParser:
     xml out of that map
     """
 
-    def __init__(self, img_path, resolution, config_path=None, output=None):
+    def __init__(self, img_path: str, resolution: float, config_path: str = None, output: str = None):
         """
         :param img_path:    path to the map image file
         :param resolution:  map resolution in [m]
@@ -144,7 +145,7 @@ class MengeMapParser:
         self.extract_target_areas()
         self.make_xml(**kwargs)
 
-    def extract_trajectory(self):
+    def extract_trajectory(self) -> np.ndarray:
         """
         extract trajectory pixels from corresponding image
         if no trajectory given, return image center
@@ -160,13 +161,13 @@ class MengeMapParser:
             # return image center
             return np.array(self.img.shape).reshape(-1, 2) // 2
 
-    def extract_obstacles(self, r_d=15, r_c=20, r_e=10, tolerance=0.1, **kwargs):
+    def extract_obstacles(self, r_d: int = 15, r_c: int = 20, r_e: int = 10, tolerance: float = 0.1, **kwargs):
         """
         extract static obstacles from image by detecting lines/contours
 
-        :param r_d:             radius for structuring element for dilation
-        :param r_c:             radius for structuring element for closing
-        :param r_e:             radius for structuring element for erosion
+        :param r_d:             radius in pixel for structuring element for dilation
+        :param r_c:             radius in pixel for structuring element for closing
+        :param r_e:             radius in pixel for structuring element for erosion
         :param tolerance:       tolerance value in [m] for the obstacle approximation
         """
 
@@ -211,7 +212,7 @@ class MengeMapParser:
         # set flag
         self.obstacles_extracted = True
 
-    def extract_traversable_space(self):
+    def extract_traversable_space(self) -> np.ndarray:
         """
         uses extracted obstacles and enclosing contours to find the traversable space
 
@@ -266,7 +267,7 @@ class MengeMapParser:
             try:
                 # for OpenCV2 and OpenCV4 findContours returns 2 values
                 tgt_contours, _ = cv2.findContours(target.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-                
+
             except ValueError:
                 # for OpenCV3 findContours returns 3 values
                 _, tgt_contours, _ = cv2.findContours(target.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -295,7 +296,7 @@ class MengeMapParser:
 
         self.targets_extracted = True
 
-    def plot_image(self, image=None):
+    def plot_image(self, image: Union[np.ndarray, str] = None):
         """
         plot image via matplotlib.pyplot
         a) if called without arguments --> plot image assigned to instance at instantiation
@@ -448,7 +449,7 @@ class MengeMapParser:
         plt.yticks([])
         plt.show()
 
-    def make_xml(self, make_navmesh=True, **kwargs):
+    def make_xml(self, make_navmesh: bool = True, **kwargs):
         """
         compose a Menge compliant scenario out of four xml files (base, scene, behavior, view)
         """
@@ -466,7 +467,7 @@ class MengeMapParser:
         if make_navmesh:
             self.make_navmesh()
 
-    def make_base(self, pedestrian_model="pedvo", **kwargs):
+    def make_base(self, pedestrian_model: str = "pedvo", **kwargs):
         """
         make a Menge simulator compliant xml file that specifies a scenario based on the scene, behavior and view file.
         """
@@ -491,7 +492,7 @@ class MengeMapParser:
         # write to file
         self.base_tree.write(self.output['base'], xml_declaration=True, encoding='utf-8', method="xml")
 
-    def make_scene(self, num_agents=200, num_robots=1, **kwargs):
+    def make_scene(self, num_agents: int = 200, num_robots: int = 1, **kwargs):
         """
         make a Menge simulator compliant scene xml file out of the extracted contours and the scene config
         """
@@ -576,7 +577,7 @@ class MengeMapParser:
         # write to file
         self.scene_tree.write(self.output['scene'], xml_declaration=True, encoding='utf-8', method="xml")
 
-    def make_behavior(self, make_navmesh=False, num_goals=None, **kwargs):
+    def make_behavior(self, make_navmesh: bool = False, num_goals: int = None, **kwargs):
         """
         make a Menge simulator compliant behavior xml file out of the behavior config
 
@@ -667,7 +668,7 @@ class MengeMapParser:
         assert self.config, \
             "Unable to parse config file.\n Config file is required for generating Menge compliant xml files"
 
-        #TODO:
+        # TODO:
         # find way to specify view automatically from map
         pass
 

@@ -1,8 +1,10 @@
 import numpy as np
 from skimage import measure
+from typing import Tuple, List, Callable
 
 
-def remove_inner_contours(contours, trajectory):
+def remove_inner_contours(contours: List[np.ndarray], trajectory: np.ndarray) \
+        -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """
     removes all contours that lie within other contours
 
@@ -63,7 +65,8 @@ def remove_inner_contours(contours, trajectory):
     # if only one bounding contour, or multiple intersecting bounding contours
     if not real_bound:
         # return all inner contours, sorted ascending by the area they enclose
-        contour_area = lambda cnt: np.abs(0.5*np.sum(cnt[:, 1][:-1]*np.diff(cnt[:, 0]) - cnt[:, 0][:-1]*np.diff(cnt[:, 1])))
+        contour_area = lambda cnt: np.abs(0.5*np.sum(cnt[:, 1][:-1]*np.diff(cnt[:, 0])
+                                                     - cnt[:, 0][:-1]*np.diff(cnt[:, 1])))
         order = np.argsort([contour_area(contours[cnt]) for cnt in bounding_contours])
         real_bound = bounding_contours[order]
 
@@ -81,15 +84,15 @@ def remove_inner_contours(contours, trajectory):
     return reduced_contours, bounding_contours
 
 
-def contour_length(cnt):
+def contour_length(cnt: np.ndarray) -> np.ndarray:
     """
-    get length of contour
+    get length of contour(s)
     """
     diff = cnt - np.roll(cnt, 1, axis=0)
     return np.sum(np.linalg.norm(diff, axis=1))
 
 
-def lineContour2rectangle(cnt_length, cnt, tol):
+def lineContour2rectangle(cnt_length: Callable[[np.ndarray], np.ndarray], cnt: np.ndarray, tol: float) -> np.ndarray:
     """
     make two point contour line to (closed) rectangle contour
     """
@@ -109,7 +112,7 @@ def lineContour2rectangle(cnt_length, cnt, tol):
     return cnt
 
 
-def approximate_contours(contours, tolerance):
+def approximate_contours(contours: List[np.ndarray], tolerance: float) -> List[np.ndarray]:
     """
     approximates each cnt within contours with a polygon given the specified tol
 

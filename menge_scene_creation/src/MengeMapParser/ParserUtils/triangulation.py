@@ -1,9 +1,11 @@
 import numpy as np
 import triangle as tr
 from skimage import measure
+from typing import List, Tuple
 
 
-def contour2vertseg(contour, vertices, segments, last_idx):
+def contour2vertseg(contour: np.ndarray, vertices: List[np.ndarray], segments: List[List[int]], last_idx: int) \
+        -> Tuple[List[np.ndarray], List[List[int]], int]:
     """
     convert contours to constraints in format required by triangle package
 
@@ -25,7 +27,7 @@ def contour2vertseg(contour, vertices, segments, last_idx):
     return vertices, segments, last_idx
 
 
-def get_triangles(contours, bounds, make_holes=True):
+def get_triangles(contours: np.ndarray, bounds: np.ndarray, make_holes: bool = True) -> Tuple[np.ndarray, np.ndarray]:
     """
     uses triangle package to triangulate map span by contours
     applies constrained Delaunay triangulation
@@ -117,12 +119,12 @@ def get_triangles(contours, bounds, make_holes=True):
     return triangles, vertices
 
 
-def triangulate_map(contours, bounds):
+def triangulate_map(contours: np.ndarray, bounds: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
 
     :param contours: list of arrays of shape (N,2), each array containing a contour of an obstacle with N points
     :param bounds: same format as contours but containing outer boundaries of the traversable area
-    :return: tuple (vertices, edges, faces, elevation)
+    :return: tuple (vertices, faces)
         vertices: array of shape (num contour points, 2) containing all vertices (r,c) of the triangle mesh
         faces: array of shape (num edges/3, 3) containing the indices for the vertices that make a triangle (v1,v2,v3)
                 for each face of the mesh

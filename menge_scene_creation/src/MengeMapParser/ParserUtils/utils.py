@@ -1,9 +1,10 @@
 import argparse
 import cv2
 import numpy as np
+from typing import Tuple
 
 
-def parse_unknown_args(unknown):
+def parse_unknown_args(unknown: list) -> Tuple[list, dict]:
     """
     function handles unknown args given by argparse.ArgumentParser class method parse_unknown_args()
     parses positional arguments (args) as well as keyword arguments (kwargs)
@@ -13,7 +14,7 @@ def parse_unknown_args(unknown):
         2) --key value
         3) key=value
 
-    :param unknown: second variable returned from parse_unknown_args() method from argparse.ArgumentParser class
+    :param unknown: second variable returned from parse_known_args() method from argparse.ArgumentParser class
     :return:
         unknown_args:   list of positional arguments [arg1, ..., argN]
         unknown_kwargs: dict of keyword arguments {key1:value2, ..., keyN:valueN}
@@ -54,7 +55,7 @@ def parse_unknown_args(unknown):
     return unknown_args, unknown_kwargs
 
 
-def make_img_binary(img):
+def make_img_binary(img: np.ndarray) -> np.ndarray:
     # count occurrences of each color value [0...255] in the image
     counts = np.bincount(img.ravel())
     # get color values with highest (background) and second highest (foreground) frequency
@@ -75,5 +76,5 @@ def make_img_binary(img):
     return binary
 
 
-def str2bool(s):
+def str2bool(s: str) -> bool:
     return str(s).lower() in ['true', '1', 't', 'y', 'yes']

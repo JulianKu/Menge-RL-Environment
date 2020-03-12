@@ -1,7 +1,9 @@
 import numpy as np
+from typing import Tuple, Union
 
 
-def pixel2meter(coordinates, dimension, resolution):
+def pixel2meter(coordinates: np.ndarray, dimension: np.ndarray, resolution: float) \
+        -> Tuple[Union[int, float, np.ndarray], Union[int, float, np.ndarray]]:
     """
     transforms the pixel coordinate of a map image to the corresponding metric dimensions
         NOTE: pixel coordinates start in the upper left corner with (0,0)
@@ -20,7 +22,12 @@ def pixel2meter(coordinates, dimension, resolution):
     return x, y
 
 
-def center2corner_pivot(box):
+def center2corner_pivot(box: Tuple[Tuple[Union[int, float], Union[int, float]],
+                                   Tuple[Union[int, float], Union[int, float]],
+                                   float]) \
+        -> Tuple[Tuple[Union[int, float], Union[int, float]],
+                 Tuple[Union[int, float], Union[int, float]],
+                 float]:
     """
     transforms a box, defined by x and y of the center, width, height and rotation angle (rotation around center)
     into a box, defined by x and y of the lower corner, width, height and rotation angle (rotation around lower corner)

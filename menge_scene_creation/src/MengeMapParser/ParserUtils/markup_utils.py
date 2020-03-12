@@ -4,7 +4,7 @@ from xml.etree import ElementTree as ET
 import yaml
 
 
-def xml_indentation(tree, level=0):
+def xml_indentation(tree: ET, level: int = 0):
     """
     format xml tree to have proper indentation (modification happens in place)
 
@@ -34,7 +34,7 @@ def xml_indentation(tree, level=0):
             tree.tail = i
 
 
-def dict2etree(parent, dictionary):
+def dict2etree(parent: ET, dictionary: dict) -> ET:
     """
     turn dictionary into xml etree
 
@@ -66,7 +66,7 @@ def dict2etree(parent, dictionary):
     return parent
 
 
-def read_yaml(file):
+def read_yaml(file: str) -> dict:
     """
     read yaml file
 
