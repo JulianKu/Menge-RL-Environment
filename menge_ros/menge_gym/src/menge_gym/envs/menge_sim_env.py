@@ -220,6 +220,7 @@ class MengeGym(gym.Env):
                     'd': self.time_limit,
                     't': self.time_step}
         self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
+        rp.sleep(5)
         # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
 
         # simulation controls
@@ -466,6 +467,7 @@ class MengeGym(gym.Env):
                     'd': self.time_limit,
                     't': self.time_step}
         self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
+        rp.sleep(5)
         # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
 
         # Sample new goal
