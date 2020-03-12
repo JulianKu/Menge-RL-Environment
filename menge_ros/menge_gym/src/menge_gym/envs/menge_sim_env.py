@@ -6,7 +6,6 @@ import numpy as np
 from os import path
 import rospy as rp
 import rosnode
-import rospkg
 from geometry_msgs.msg import PoseArray, PoseStamped, Twist
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
@@ -25,72 +24,41 @@ class MengeGym(gym.Env):
     """
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, scenario_xml: str):
-        """
-
-        :param scenario_xml: menge simulator scenario project file
-        """
-
+    def __init__(self):
         super(MengeGym, self).__init__()
-        rp.loginfo("Initializing environment")
-        self.roshandle = ROSHandle()
 
-        # TODO: rviz config not loaded properly (workaround: start rviz seperately via launch file etc.)
-        # visualization = True
-        # if visualization:
-        #     # Get rviz configuration file from "menge_vis" package
-        #     rviz_path = path.join(path.join(rospkg.RosPack().get_path("menge_vis"), "rviz"), "menge_ros.rviz")
-        #     # Start rviz rosnode
-        #     self.roshandle.start_rosnode('rviz', 'rviz', launch_cli_args={"d": rviz_path})
+        self.config = None
 
-        rp.on_shutdown(self.close)
+        # Environment variables
+        self.time_limit = None
+        self.time_step = None
+        self.randomize_attributes = None
+        self.robot_sensor_range = None
 
-        assert path.isfile(scenario_xml), 'No valid scenario_xml specified'
-        self.scenario_xml = scenario_xml
+        # Simulation scenario variables
+        self.scenario_xml = None
         self.scene_xml = None
         self.behavior_xml = None
         self.initial_robot_pos = None
         self.goals_array = None
         self.goal = None
+
+        # Robot variables
         self.robot_radius = None
-        self._initialize_from_simulator()
-        # sample first goal
-        self.sample_goal(exclude_initial=True)
+        self.robot_range = None
+        self.robot_speed_sampling = None
+        self.robot_rotation_sampling = None
 
-        self.timeout = 120
-        self.time_step = 0.05  # do 50 ms step
-        self._n_observations = 10
-        v_max = 10
-        num_speeds = 5
-        num_angles = 16
+        # Reward variables
+        self.success_reward = None
+        self.collision_penalty_crowd = None
+        self.discomfort_dist = None
+        self.discomfort_penalty_factor = None
+        self.collision_penalty_obs = None
+        self.clearance_dist = None
+        self.clearance_penalty_factor = None
 
-        # from config
-        self.success_reward = 1
-        self.collision_penalty_crowd = -0.25
-        self.discomfort_dist = 0.5
-        self.discomfort_penalty_factor = - self.collision_penalty_crowd / self.discomfort_dist
-        self.collision_penalty_obs = -0.25
-        self.clearance_dist = 0.5
-        self.clearance_penalty_factor = - self.collision_penalty_obs / self.clearance_dist
-
-        rp.loginfo("Start Menge simulator node")
-        # launch_cli_args = {'project': self.scenario_xml,
-        #                    'timeout': self.timeout,
-        #                    'timestep': self.time_step}
-        # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
-        cli_args = {'p': self.scenario_xml,
-                    'd': self.timeout,
-                    't': self.time_step}
-        self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
-        # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
-
-        # simulation controls
-        rp.logdebug("Set up publishers and subscribers")
-        rp.init_node('MengeSimEnv', log_level=rp.DEBUG)
-        self._pub_run = rp.Publisher('run', Bool, queue_size=1)
-        self._step_done = False
-
-        # observation space
+        # Observation variables
         self._crowd_poses = []  # type: List[np.ndarray]
         self._robot_poses = []  # type: List[np.ndarray]
         self._static_obstacles = np.array([], dtype=float)
@@ -98,33 +66,96 @@ class MengeGym(gym.Env):
         self.ped_tracker = Sort()
         self.combined_state = np.array([], dtype=float)
 
-        # rp.Subscriber("crowd_pose", PoseArray, self._crowd_pose_callback)
-        rp.Subscriber("crowd_expansion", MarkerArray, self._crowd_expansion_callback, queue_size=50)
-        rp.Subscriber("laser_static_end", PoseArray, self._static_obstacle_callback, queue_size=50)
-        rp.Subscriber("pose", PoseStamped, self._robot_pose_callback, queue_size=50)
-        rp.Subscriber("done", Bool, self._done_callback, queue_size=50)
-
-        # action space
-        # from paper RGL for CrowdNav --> 5 speeds (0, v_pref] and 16 headings [0, 2*pi)
-        # exponentially distributed speeds
-        self._velocities = np.logspace(0, np.log(v_max + 1), num_speeds, endpoint=True, base=np.e) - 1
-        # linearly distributed angles
-        # make num_angles odd to ensure null action (0 --> not changing steering)
-        num_angles = num_angles // 2 * 2 + 1
-        # angles between -45° und +45° in contrast to paper between -pi and +pi
-        self._angles = np.linspace(-np.pi/4, np.pi/4, num_angles, endpoint=True)
-        self.action_space = spaces.MultiDiscrete([num_speeds, num_angles])
+        # Action variables
+        self._velocities = None
+        self._angles = None
         self._action = None  # type: Union[None, np.ndarray]
 
-        # self._cmd_vel_pub = rp.Publisher('/cmd_vel', Twist, queue_size=50)
-        self._cmd_vel_srv = rp.Service('cmd_vel_srv', CmdVel, self._cmd_vel_srv_handler)
-        self._advance_sim_srv = rp.ServiceProxy('advance_simulation', RunSim)
+        # Schedule variables
+        self.case_size = None
+        self.case_counter = None
 
-        # initialize time
-        # self._run_duration = rp.Duration(self.time_step)
-        self._rate = rp.Rate(10)
+        # ROS
+        self.roshandle = None
+        self._sim_pid = None
+        self._pub_run = None
+        self._step_done = None
+        self._cmd_vel_srv = None
+        self._advance_sim_srv = None
+        self.ros_rate = None
+        self._rate = None
 
-    def _initialize_from_simulator(self):
+    def configure(self, config):
+
+        self.config = config
+
+        # Environment
+        self.time_limit = config.env.time_limit
+        self.time_step = config.env.time_step
+        self.randomize_attributes = config.env.randomize_attributes  # randomize humans' radius and preferred speed
+
+        # Simulation
+        self.scenario_xml = config.sim.scenario
+
+        if path.isfile(self.scenario_xml):
+            self._initialize_from_scenario()
+        else:
+            self.robot_radius = config.robot.radius
+            self.robot_range = config.robot.sensor_range
+            # TODO: make scenario from this
+            assert path.isfile(self.scenario_xml), 'No valid scenario_xml specified' # as scenario generation not implemented yet
+        # sample first goal
+        self.sample_goal(exclude_initial=True)
+
+        # Reward
+        self.success_reward = config.reward.success_reward
+        self.collision_penalty_crowd = config.reward.collision_penalty_crowd
+        self.discomfort_dist = config.reward.discomfort_dist
+        self.discomfort_penalty_factor = config.reward.discomfort_penalty_factor
+        self.collision_penalty_obs = config.reward.collision_penalty_obs
+        self.clearance_dist = config.reward.clearance_dist
+        self.clearance_penalty_factor = config.reward.clearance_dist_penalty_factor
+
+        # Robot
+        v_max = config.robot.v_pref
+        rotation_constraint = config.robot.rotation_constraint
+        num_speeds = config.robot.action_space.speed_samples
+        num_angles = config.robot.action_space.rotation_samples
+        self.robot_speed_sampling = config.robot.action_space.speed_sampling
+        self.robot_rotation_sampling = config.robot.action_space.rotation_sampling
+        # action space
+        # from paper RGL for CrowdNav --> 6 speeds [0, v_pref] and 16 headings [0, 2*pi)
+        if self.robot_speed_sampling == 'exponential':
+            # exponentially distributed speeds (distributed between 0 and v_max)
+            self._velocities = np.geomspace(1, v_max + 1, num_speeds + 1, endpoint=True) - 1
+        elif self.robot_speed_sampling == 'linear':
+            self._velocities = np.linspace(0, v_max, num_speeds + 1, endpoint=True)
+        else:
+            raise NotImplementedError
+
+        if self.robot_rotation_sampling == 'linear':
+            # linearly distributed angles
+            # make num_angles odd to ensure null action (0 --> not changing steering)
+            num_angles = num_angles // 2 * 2 + 1
+            # angles between -45° und +45° in contrast to paper between -pi and +pi
+            self._angles = np.linspace(-rotation_constraint, rotation_constraint, num_angles, endpoint=True)
+        elif self.robot_rotation_sampling == 'exponential':
+            min_angle_increment = 1             # (in deg)
+            min_angle_increment *= np.pi / 180  # (in rad)
+            positive_angles = np.geomspace(min_angle_increment, rotation_constraint, num_angles//2, endpoint=True)
+            self._angles = np.concatenate((-positive_angles[::-1], [0], positive_angles))
+        else:
+            raise NotImplementedError
+
+        self.action_space = spaces.MultiDiscrete([num_speeds, num_angles])
+
+        self.case_size = {'train': config.env.train_size, 'val': config.env.val_size,
+                          'test': config.env.test_size}
+        self.case_counter = {'train': 0, 'test': 0, 'val': 0}
+
+        self.ros_rate = config.ros.rate
+
+    def _initialize_from_scenario(self):
         scenario_xml = self.scenario_xml
         scenario_dir = path.split(scenario_xml)[0]
 
@@ -166,21 +197,62 @@ class MengeGym(gym.Env):
 
         self.goal = goals_array[np.random.randint(len(goals_array))]
 
+    def setup_ros_connection(self):
+        rp.loginfo("Initializing ROS")
+        self.roshandle = ROSHandle()
+
+        # TODO: rviz config not loaded properly (workaround: start rviz seperately via launch file etc.)
+        # visualization = True
+        # if visualization:
+        #     # Get rviz configuration file from "menge_vis" package
+        #     rviz_path = path.join(path.join(rospkg.RosPack().get_path("menge_vis"), "rviz"), "menge_ros.rviz")
+        #     # Start rviz rosnode
+        #     self.roshandle.start_rosnode('rviz', 'rviz', launch_cli_args={"d": rviz_path})
+
+        rp.on_shutdown(self.close)
+
+        rp.loginfo("Start Menge simulator node")
+        # launch_cli_args = {'project': self.scenario_xml,
+        #                    'timeout': self.timeout,
+        #                    'timestep': self.time_step}
+        # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
+        cli_args = {'p': self.scenario_xml,
+                    'd': self.time_limit,
+                    't': self.time_step}
+        self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
+        # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
+
+        # simulation controls
+        rp.logdebug("Set up publishers and subscribers")
+        rp.init_node('MengeSimEnv', log_level=rp.DEBUG)
+        self._pub_run = rp.Publisher('run', Bool, queue_size=1)
+        self._step_done = False
+
+        # rp.Subscriber("crowd_pose", PoseArray, self._crowd_pose_callback)
+        rp.Subscriber("crowd_expansion", MarkerArray, self._crowd_expansion_callback, queue_size=50)
+        rp.Subscriber("laser_static_end", PoseArray, self._static_obstacle_callback, queue_size=50)
+        rp.Subscriber("pose", PoseStamped, self._robot_pose_callback, queue_size=50)
+        rp.Subscriber("done", Bool, self._done_callback, queue_size=50)
+
+        # self._cmd_vel_pub = rp.Publisher('/cmd_vel', Twist, queue_size=50)
+        self._cmd_vel_srv = rp.Service('cmd_vel_srv', CmdVel, self._cmd_vel_srv_handler)
+        self._advance_sim_srv = rp.ServiceProxy('advance_simulation', RunSim)
+
+        # initialize time
+        # self._run_duration = rp.Duration(self.time_step)
+        self._rate = rp.Rate(self.ros_rate)
+
     # def _crowd_pose_callback(self, msg: PoseArray):
-    #     # transform PoseArray message to numpy array
     #     rp.logdebug('Crowd Pose subscriber callback called')
+    #     # transform PoseArray message to numpy array
     #     pose_array = np.array(list(map(pose2array, msg.poses)))
-    #     # update list of crowd poses + pointer to current position
-    #     crowd_pose_i = self._crowd_pose_i
-    #     self._crowd_poses[crowd_pose_i] = pose_array
-    #     self._crowd_pose_i = (crowd_pose_i + 1) % self._n_observations
+    #     self._crowd_poses.append(pose_array)
 
     def _crowd_expansion_callback(self, msg: MarkerArray):
-        # transform MarkerArray message to numpy array
         rp.logdebug('Crowd Expansion subscriber callback called')
-        pose_array = np.array(list(map(marker2array, msg.markers)))
-        # update list of crowd poses + pointer to current position
-        self._crowd_poses.append(pose_array.reshape(-1, 4))
+        # transform MarkerArray message to numpy array
+        marker_array = np.array(list(map(marker2array, msg.markers)))
+        self._crowd_poses.append(marker_array.reshape(-1, 4))
 
     def _static_obstacle_callback(self, msg: PoseArray):
         rp.logdebug('Static Obstacle subscriber callback called')
@@ -391,7 +463,7 @@ class MengeGym(gym.Env):
         #                    'timestep': self.time_step}
         # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
         cli_args = {'p': self.scenario_xml,
-                    'd': self.timeout,
+                    'd': self.time_limit,
                     't': self.time_step}
         self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
         # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)

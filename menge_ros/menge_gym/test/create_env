@@ -4,25 +4,27 @@ import gym
 import numpy as np
 import rospy as rp
 import tqdm
-import sys
+import config
 
 
 def main():
-    env = gym.make("menge_gym:MengeGym-v0", scenario_xml="/home/julian/Desktop/test_data/test.xml")
+    env = gym.make("menge_gym:MengeGym-v0")
+    env.configure(config.BaseEnvConfig)
+    env.setup_ros_connection()
     rp.sleep(20)
-    num_iterations = 300
-    action_sequence = 50 * [np.array([env.action_space.nvec[0] - 1, np.median(range(env.action_space.nvec[1]))],
+    num_iterations = 200
+    action_sequence = 20 * [np.array([env.action_space.nvec[0] - 1, np.median(range(env.action_space.nvec[1]))],
                                      dtype=np.int32)] + [np.array([0, env.action_space.nvec[1] - 1])] \
-                      + 50 * [np.array([env.action_space.nvec[0] - 1, np.median(range(env.action_space.nvec[1]))],
-                                     dtype=np.int32)] + 3 * [np.array([0, 0])] \
-                      + 50 * [np.array([env.action_space.nvec[0] - 1, np.median(range(env.action_space.nvec[1]))],
-                                     dtype=np.int32)] + 2 * [np.array([0, 0])] \
-                      + 94 * [np.array([np.median(range(env.action_space.nvec[0])), np.percentile(range(env.action_space.nvec[1]), 40)],
-                                     dtype=np.int32)]
+                      + 20 * [np.array([env.action_space.nvec[0] - 1, np.median(range(env.action_space.nvec[1]))],
+                                       dtype=np.int32)] + 3 * [np.array([0, 0])] \
+                      + 20 * [np.array([env.action_space.nvec[0] - 1, np.median(range(env.action_space.nvec[1]))],
+                                       dtype=np.int32)] + 4 * [np.array([0, 0])] \
+                      + 32 * [np.array([np.median(range(env.action_space.nvec[0])),
+                                        np.percentile(range(env.action_space.nvec[1]), 40)], dtype=np.int32)]
     try:
         with tqdm.trange(num_iterations) as t:
             for step in t:
-                if step < 250:
+                if step < 100:
                     action = action_sequence[step]
                 else:
                     action = env.action_space.sample()
