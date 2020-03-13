@@ -7,6 +7,7 @@ import os
 import matplotlib.pyplot as plt
 from skimage import measure, draw
 from skimage.morphology import skeletonize
+from itertools import compress
 from typing import Union
 from .ParserUtils.contours_manipulation import remove_inner_contours, approximate_contours
 from .ParserUtils.utils import make_img_binary, str2bool
@@ -492,9 +493,17 @@ class MengeMapParser:
         # write to file
         self.base_tree.write(self.output['base'], xml_declaration=True, encoding='utf-8', method="xml")
 
-    def make_scene(self, num_agents: int = 200, num_robots: int = 1, **kwargs):
+    def make_scene(self, num_agents: int = 200, num_robots: int = 1, randomize_attributes: bool = False,
+                   num_samples: int = None, **kwargs):
         """
         make a Menge simulator compliant scene xml file out of the extracted contours and the scene config
+
+        :param: num_agents: int, specifying how many simulator-controlled pedestrian agents to spawn in scenario
+        :param: num_robots: int, specifying how many externally controlled robot agents to spawn in scenario
+        :param: randomize_attributes: bool, if pedestrian agent attributes (radius, preferred velocity) should be
+                randomized, i.e sample num_samples from normal distribution around values given in config
+        :param: num_samples: int, number of samples to draw from normal distribution
+                (for radius and preferred velocity each)
         """
 
         # make sure arguments are of the correct type (e.g when passed via commandline)
@@ -513,6 +522,42 @@ class MengeMapParser:
         dims = self.dims
         transformed_tgts = pixel2meter(self.target_idx, dims, res)
 
+        # find all AgentProfile elements in root
+        agt_profiles = root.findall("AgentProfile")
+        # create mask that filters out elements with name "robot"
+        mask = map(lambda x: x.attrib['name'] != 'robot', agt_profiles)
+        # get name from element that is not "robot" (AgentProfile for pedestrians)
+        profile = list(compress(agt_profiles, mask))[0]  # type: ET.Element
+        profile_name = profile.get('name')
+        profile_names = [profile_name]
+
+        # randomize_attributes randomizes agents' radius and preferred speed
+        if randomize_attributes:
+            if num_samples is None:
+                raise TypeError("if randomize_attributes argument is set, you need to specify num_samples as well")
+            else:
+                num_samples = int(num_samples)
+
+            common_attributes = profile.find("Common")
+            radius = float(common_attributes.get("r"))
+            pref_speed = float(common_attributes.get("pref_speed"))
+            # generate samples from standard normal distribution
+            normal = np.random.randn(2, num_samples)
+            # scale so that distribution centred at initial value and cut off values that are too small
+            sampled_radii = np.maximum(np.around(normal[0] * radius / 3 + radius, decimals=2), 0.1)
+            sampled_speeds = np.maximum(np.around(normal[1] * pref_speed / 3 + pref_speed, decimals=2), 0.1)
+            # create new AgentProfile for all combinations of radius and speed
+            for r in sampled_radii:
+                for speed in sampled_speeds:
+                    agt_prof = ET.SubElement(root, "AgentProfile")
+                    new_profile_name = "{0}_r{1}_s{2}".format(profile_name, r, speed)
+                    agt_prof.set("name", new_profile_name)
+                    profile_names.append(new_profile_name)
+                    agt_prof.set("inherits", profile_name)
+                    new_common_attributes = ET.SubElement(agt_prof, "Common")
+                    new_common_attributes.set("r", str(r))
+                    new_common_attributes.set("pref_speed", str(speed))
+
         # define robot group
         robot_group = ET.SubElement(root, "AgentGroup")
         rob_profile_selector = ET.SubElement(robot_group, "ProfileSelector")
@@ -526,28 +571,36 @@ class MengeMapParser:
 
         for rob in range(int(num_robots)):
             robot = ET.SubElement(rob_generator, "Agent")
-            random_idx = np.random.choice(len(transformed_tgts[0]))
-            robot_x = transformed_tgts[0][random_idx]
-            robot_y = transformed_tgts[1][random_idx]
+            random_tgt_idx = np.random.choice(len(transformed_tgts[0]))
+            robot_x = transformed_tgts[0][random_tgt_idx]
+            robot_y = transformed_tgts[1][random_tgt_idx]
             robot.set("p_x", str(robot_x))
             robot.set("p_y", str(robot_y))
 
-        # define agent group
-        agent_group = ET.SubElement(root, "AgentGroup")
-        agt_profile_selector = ET.SubElement(agent_group, "ProfileSelector")
-        agt_profile_selector.set("type", "const")
-        agt_profile_selector.set("name", "group1")
-        agt_state_selector = ET.SubElement(agent_group, "StateSelector")
-        agt_state_selector.set("type", "const")
-        agt_state_selector.set("name", "Walk")
-        agt_generator = ET.SubElement(agent_group, "Generator")
-        agt_generator.set("type", "explicit")
+        agent_groups = []
+        # define agent group(s)
+        for profile_name in profile_names:
+            agent_group = ET.SubElement(root, "AgentGroup")
+            agt_profile_selector = ET.SubElement(agent_group, "ProfileSelector")
+            agt_profile_selector.set("type", "const")
+            agt_profile_selector.set("name", profile_name)
+            agt_state_selector = ET.SubElement(agent_group, "StateSelector")
+            agt_state_selector.set("type", "const")
+            agt_state_selector.set("name", "Walk")
+            agt_generator = ET.SubElement(agent_group, "Generator")
+            agt_generator.set("type", "explicit")
+            agent_groups.append(agent_group)
 
         for a in range(int(num_agents)):
-            agent = ET.SubElement(agt_generator, "Agent")
-            random_idx = np.random.choice(len(transformed_tgts[0]))
-            agent_x = transformed_tgts[0][random_idx]
-            agent_y = transformed_tgts[1][random_idx]
+            # choose random AgentGroup
+            random_group_idx = np.random.randint(len(agent_groups))
+            generator = agent_groups[random_group_idx].find("Generator")
+            # create agent in this group
+            agent = ET.SubElement(generator, "Agent")
+            # sample position from targets
+            random_tgt_idx = np.random.choice(len(transformed_tgts[0]))
+            agent_x = transformed_tgts[0][random_tgt_idx]
+            agent_y = transformed_tgts[1][random_tgt_idx]
             agent.set("p_x", str(agent_x))
             agent.set("p_y", str(agent_y))
 
