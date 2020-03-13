@@ -11,7 +11,7 @@ from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
 from menge_srv.srv import RunSim, CmdVel, CmdVelResponse
 from .utils.ros import obstacle2array, marker2array, ROSHandle  # ,pose2array, launch
-from .utils.params import match_in_xml, goal2array, get_robot_initial_position
+from .utils.params import goal2array, get_robot_initial_position, parseXML
 from .utils.info import *
 from .utils.tracking import Sort, KalmanTracker
 from .utils.format import format_array
@@ -158,24 +158,28 @@ class MengeGym(gym.Env):
     def _initialize_from_scenario(self):
         scenario_xml = self.scenario_xml
         scenario_dir = path.split(scenario_xml)[0]
+        scenario_root = parseXML(scenario_xml)
 
-        scene_xml = match_in_xml(scenario_xml, attrib_name='scene')
+        scene_xml = scenario_root.get('scene')
         if not path.isabs(scene_xml):
             self.scene_xml = path.join(scenario_dir, scene_xml)
+        else:
+            self.scene_xml = scene_xml
         assert path.isfile(self.scene_xml), 'Scene file specified in scenario_xml non-existent'
 
-        # extract robot radius from behavior_xml file
-        self.robot_radius = float(
-            match_in_xml(self.scene_xml, tag="Common", attrib_name="r", constraints={"external": "1"}))
+        # extract robot radius from scene_xml file
+        scene_root = parseXML(self.scene_xml)
+        self.robot_radius = float(scene_root.find("AgentProfile/Common[@external='1']").get('r'))
 
-        behavior_xml = match_in_xml(scenario_xml, attrib_name='behavior')
+        behavior_xml = scenario_root.get('behavior')
         if not path.isabs(behavior_xml):
             self.behavior_xml = path.join(scenario_dir, behavior_xml)
         assert path.isfile(self.behavior_xml), 'Behavior file specified in scenario_xml non-existent'
 
         # extract goal set from behavior file
-        goals = match_in_xml(self.behavior_xml, tag="Goal", return_all=True)
-        self.goals_array = np.array(list(map(goal2array, goals)))
+        behavior_root = parseXML(self.behavior_xml)
+        goals = behavior_root.findall("GoalSet/Goal")
+        self.goals_array = np.array([goal2array(goal) for goal in goals])
 
     def sample_goal(self, exclude_initial: bool = False):
         """
