@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
 
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ElT
 import yaml
 
 
-def xml_indentation(tree: ET, level: int = 0):
+def xml_indentation(tree: ElT, level: int = 0):
     """
     format xml tree to have proper indentation (modification happens in place)
 
@@ -12,7 +12,7 @@ def xml_indentation(tree: ET, level: int = 0):
     :param level:   level at which to start (can be left out in general)
     """
 
-    assert isinstance(tree, ET.Element), "function only works for structures specified as etree.ElementTree.Element"
+    assert isinstance(tree, ElT.Element), "function only works for structures specified as etree.ElementTree.Element"
     assert isinstance(level, int), "level needs to have integer value"
 
     indent = "\t"
@@ -34,7 +34,7 @@ def xml_indentation(tree: ET, level: int = 0):
             tree.tail = i
 
 
-def dict2etree(parent: ET, dictionary: dict) -> ET:
+def dict2etree(parent: ElT, dictionary: dict) -> ElT:
     """
     turn dictionary into xml etree
 
@@ -55,7 +55,7 @@ def dict2etree(parent: ET, dictionary: dict) -> ET:
             else:
                 key_str = key
             if isinstance(val, dict):
-                subtree = ET.SubElement(parent, key_str)
+                subtree = ElT.SubElement(parent, key_str)
                 dict2etree(subtree, dictionary[key])
             else:
                 parent.set(key, str(val))
