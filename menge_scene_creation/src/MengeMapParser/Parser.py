@@ -4,10 +4,10 @@ import cv2
 import numpy as np
 import xml.etree.ElementTree as ElT
 import os
+from os.path import dirname as up
 import matplotlib.pyplot as plt
 from skimage import measure, draw
 from skimage.morphology import skeletonize
-from itertools import compress
 from typing import Union
 from .ParserUtils.contours_manipulation import remove_inner_contours, approximate_contours
 from .ParserUtils.utils import make_img_binary, str2bool
@@ -61,10 +61,10 @@ class MengeMapParser:
             self.trajectory_img = None
 
         self.resolution = resolution
-        if config_path:
-            self.config = read_yaml(config_path)
-        else:
-            self.config = {}
+        if not config_path:
+            parent_dir = up(up(up(os.path.abspath(__file__))))
+            config_path = os.path.join(os.path.join(parent_dir, "config"), "scene.yaml")
+        self.config = read_yaml(config_path)
 
         if output:
             base, ext = os.path.splitext(output)
@@ -504,6 +504,8 @@ class MengeMapParser:
                 randomized, i.e sample num_samples from normal distribution around values given in config
         :param: num_samples: int, number of samples to draw from normal distribution
                 (for radius and preferred velocity each)
+        :param: robot_config: dict, attributes for the robot's AgentProfile
+                                    (key -> attribute name, value -> attribute value)
         """
 
         # make sure arguments are of the correct type (e.g when passed via commandline)
@@ -517,19 +519,14 @@ class MengeMapParser:
 
         dict2etree(root, self.config['Experiment'])
 
-        # define robots and agents
-        res = self.resolution
-        dims = self.dims
-        transformed_tgts = pixel2meter(self.target_idx, dims, res)
+        # if spatial query type navmesh -> file name required
+        spatial_query = root.find("SpatialQuery[@type='nav_mesh']")
+        if spatial_query is not None:
+            spatial_query.set('file_name', os.path.split(self.output['navmesh'])[1])
 
-        # find all AgentProfile elements in root
-        agt_profiles = root.findall("AgentProfile")
-        # create mask that filters out elements with name "robot"
-        mask = map(lambda x: x.attrib['name'] != 'robot', agt_profiles)
-        # get name from element that is not "robot" (AgentProfile for pedestrians)
-        profile = list(compress(agt_profiles, mask))[0]  # type: ET.Element
-        profile_name = profile.get('name')
-        profile_names = [profile_name]
+        # find all AgentProfile elements in root that are not externally controlled (i.e. no robots)
+        agt_profiles = root.findall("AgentProfile/Common[@external='0']/..")
+        profile_names = [profile.get('name') for profile in agt_profiles]
 
         # randomize_attributes randomizes agents' radius and preferred speed
         if randomize_attributes:
@@ -537,26 +534,33 @@ class MengeMapParser:
                 raise TypeError("if randomize_attributes argument is set, you need to specify num_samples as well")
             else:
                 num_samples = int(num_samples)
+            for profile, profile_name in zip(agt_profiles, profile_names):
+                common_attributes = profile.find("Common")
+                radius = float(common_attributes.get("r"))
+                pref_speed = float(common_attributes.get("pref_speed"))
+                # generate samples from standard normal distribution
+                normal = np.random.randn(2, num_samples)
+                # scale so that distribution centred at initial value and cut off values that are too small
+                sampled_radii = np.maximum(np.around(normal[0] * radius / 3 + radius, decimals=2), 0.1)
+                sampled_speeds = np.maximum(np.around(normal[1] * pref_speed / 3 + pref_speed, decimals=2), 0.1)
+                # create new AgentProfile for all combinations of radius and speed
+                for r in sampled_radii:
+                    for speed in sampled_speeds:
+                        agt_prof = ElT.SubElement(root, "AgentProfile")
+                        new_profile_name = "{0}_r{1}_s{2}".format(profile_name, r, speed)
+                        agt_prof.set("name", new_profile_name)
+                        profile_names.append(new_profile_name)
+                        agt_prof.set("inherits", profile_name)
+                        new_common_attributes = ElT.SubElement(agt_prof, "Common")
+                        new_common_attributes.set("r", str(r))
+                        new_common_attributes.set("pref_speed", str(speed))
 
-            common_attributes = profile.find("Common")
-            radius = float(common_attributes.get("r"))
-            pref_speed = float(common_attributes.get("pref_speed"))
-            # generate samples from standard normal distribution
-            normal = np.random.randn(2, num_samples)
-            # scale so that distribution centred at initial value and cut off values that are too small
-            sampled_radii = np.maximum(np.around(normal[0] * radius / 3 + radius, decimals=2), 0.1)
-            sampled_speeds = np.maximum(np.around(normal[1] * pref_speed / 3 + pref_speed, decimals=2), 0.1)
-            # create new AgentProfile for all combinations of radius and speed
-            for r in sampled_radii:
-                for speed in sampled_speeds:
-                    agt_prof = ET.SubElement(root, "AgentProfile")
-                    new_profile_name = "{0}_r{1}_s{2}".format(profile_name, r, speed)
-                    agt_prof.set("name", new_profile_name)
-                    profile_names.append(new_profile_name)
-                    agt_prof.set("inherits", profile_name)
-                    new_common_attributes = ET.SubElement(agt_prof, "Common")
-                    new_common_attributes.set("r", str(r))
-                    new_common_attributes.set("pref_speed", str(speed))
+        # find robot profile via "external" flag
+        robot_common_attributes = root.find("AgentProfile/Common[@external='1']")
+        # overwrite all attributes specified in robot_config
+        if robot_config is not None:
+            for attribute in robot_config:
+                robot_common_attributes.set(str(attribute), str(robot_config[attribute]))
 
         # define robot group
         robot_group = ElT.SubElement(root, "AgentGroup")
@@ -568,6 +572,11 @@ class MengeMapParser:
         rob_state_selector.set("name", "Walk")
         rob_generator = ElT.SubElement(robot_group, "Generator")
         rob_generator.set("type", "explicit")
+
+        # get targets x, y coordinates to sample agents' initial positions from
+        res = self.resolution
+        dims = self.dims
+        transformed_tgts = pixel2meter(self.target_idx, dims, res)
 
         for rob in range(int(num_robots)):
             robot = ElT.SubElement(rob_generator, "Agent")
