@@ -18,7 +18,6 @@ class BaseEnvConfig(object):
     env.val_size = 100
     env.test_size = 500
     env.train_size = np.iinfo(np.uint32).max - 2000
-    env.randomize_attributes = False
 
     reward = Config()
     reward.success_reward = 1
@@ -30,9 +29,9 @@ class BaseEnvConfig(object):
     reward.clearance_dist_penalty_factor = 0.5
 
     sim = Config()
-    scenario = Config()
     sim.scenario = '/home/julian/Desktop/test_data/test.xml'
-    sim.human_num = 5
+    sim.human_num = 30
+    sim.randomize_attributes = True
 
     humans = Config()
     humans.visible = True
@@ -46,7 +45,9 @@ class BaseEnvConfig(object):
     robot.policy = 'none'
     robot.radius = 0.3
     robot.v_pref = 1
-    robot.sensor_range = 5
+    robot.sensor_range = 50
+    robot.fov = 1.7174  # field of view (FOV) in rad
+    robot.sensor_resolution = 0.0017453  # in rad
     robot.rotation_constraint = np.pi / 3
 
     robot.action_space = Config()

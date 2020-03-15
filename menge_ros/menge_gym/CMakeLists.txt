@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
 #  roslaunch
 #  pylaunch
   menge_srv
+  menge_scene_creation
   std_msgs
   geometry_msgs
   visualization_msgs

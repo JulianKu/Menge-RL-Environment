@@ -10,6 +10,7 @@ from geometry_msgs.msg import PoseArray, PoseStamped, Twist
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
 from menge_srv.srv import RunSim, CmdVel, CmdVelResponse
+from MengeMapParser import MengeMapParser
 from .utils.ros import obstacle2array, marker2array, ROSHandle  # ,pose2array, launch
 from .utils.params import goal2array, get_robot_initial_position, parseXML
 from .utils.info import *
@@ -44,8 +45,7 @@ class MengeGym(gym.Env):
         self.goal = None
 
         # Robot variables
-        self.robot_radius = None
-        self.robot_range = None
+        self.robot_config = {}
         self.robot_speed_sampling = None
         self.robot_rotation_sampling = None
 
@@ -92,18 +92,68 @@ class MengeGym(gym.Env):
         # Environment
         self.time_limit = config.env.time_limit
         self.time_step = config.env.time_step
-        self.randomize_attributes = config.env.randomize_attributes  # randomize humans' radius and preferred speed
 
         # Simulation
-        self.scenario_xml = config.sim.scenario
-
-        if path.isfile(self.scenario_xml):
-            self._initialize_from_scenario()
+        if hasattr(config.sim, 'scenario') and path.isfile(config.sim.scenario):
+            self.scenario_xml = config.sim.scenario
+        # if no scenario provided, make new from image + parameters
         else:
-            self.robot_radius = config.robot.radius
-            self.robot_range = config.robot.sensor_range
-            # TODO: make scenario from this
-            assert path.isfile(self.scenario_xml), 'No valid scenario_xml specified' # as scenario generation not implemented yet
+            print("No scenario found ({})".format(self.scenario_xml))
+            key = input("Do you want to create a new scenario instead? (Y/N)")
+            if key.lower() != 'y':
+                raise ValueError("Scenario xml specified in config does not point to valid xml file")
+            else:
+                # get map file from input
+                print("Scenario file can be automatically generated from image file that shows a map of the environment")
+                for _ in range(3):
+                    map_img = input("Provide path to the image here: ")
+                    if not path.isfile(map_img):
+                        print("Not a valid path to a file")
+                    else:
+                        break
+                else:
+                    # only executed if for loop not ended with break statement
+                    raise ValueError("No valid image file provided")
+
+                print("To translate the image into a valid map of the environment the map's resolution is also required")
+                for _ in range(3):
+                    resolution = input("Map resolution (meters per pixel) [m/px] = ")
+                    try:
+                        resolution = float(resolution)
+                        break
+                    except ValueError:
+                        print("Resolution needs to be an integer or float")
+                else:
+                    # only executed if for loop not ended with break statement
+                    raise ValueError("No valid resolution provided")
+
+                for param in vars(config.robot):
+                    if param == 'radius':
+                        self.robot_config['r'] = config.robot.radius
+                    elif param == 'sensor_range':
+                        self.robot_config['range_max'] = config.robot.sensor_range
+                    elif param == 'fov':
+                        self.robot_config['start_angle'] = -config.robot.fov / 2
+                        self.robot_config['end_angle'] = config.robot.fov / 2
+                    elif param == 'sensor_resolution':
+                        self.robot_config['increment'] = config.robot.sensor_resolution
+
+                kwargs = {}
+                if hasattr(config.sim, 'human_num'):
+                    kwargs['num_agents'] = config.sim.human_num
+                if hasattr(config.sim, 'randomize_attributes'):
+                    # randomize humans' radius and preferred speed
+                    kwargs['randomize_attributes'] = config.sim.randomize_attributes
+                    kwargs['num_samples'] = 3
+                if self.robot_config:
+                    kwargs['robot_config'] = self.robot_config
+
+                img_parser = MengeMapParser(map_img, resolution)
+                img_parser.full_process(**kwargs)
+                self.scenario_xml = img_parser.output['base']
+        # get more parameters from scenario xml
+        self._initialize_from_scenario()
+
         # sample first goal
         self.sample_goal(exclude_initial=True)
 
