@@ -2,7 +2,7 @@
 
 import cv2
 import numpy as np
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ElT
 import os
 import matplotlib.pyplot as plt
 from skimage import measure, draw
@@ -450,7 +450,7 @@ class MengeMapParser:
         plt.yticks([])
         plt.show()
 
-    def make_xml(self, make_navmesh: bool = True, **kwargs):
+    def make_xml(self, make_navmesh: Union[bool, str] = True, **kwargs):
         """
         compose a Menge compliant scenario out of four xml files (base, scene, behavior, view)
         """
@@ -477,7 +477,7 @@ class MengeMapParser:
 
         output = self.output
 
-        root = ET.Element("Project")
+        root = ElT.Element("Project")
         for key in output:
             if key != 'base':
                 # make attribute for every element in the output dict (scene, behavior, view, dumpPath)
@@ -488,13 +488,13 @@ class MengeMapParser:
         # prettify xml by indentation
         xml_indentation(root)
 
-        self.base_tree = ET.ElementTree(root)
+        self.base_tree = ElT.ElementTree(root)
 
         # write to file
         self.base_tree.write(self.output['base'], xml_declaration=True, encoding='utf-8', method="xml")
 
     def make_scene(self, num_agents: int = 200, num_robots: int = 1, randomize_attributes: bool = False,
-                   num_samples: int = None, **kwargs):
+                   num_samples: int = None, robot_config: dict = None, **kwargs):
         """
         make a Menge simulator compliant scene xml file out of the extracted contours and the scene config
 
@@ -513,7 +513,7 @@ class MengeMapParser:
             "Unable to parse Experiment field in config file.\n " \
             "Config file is required for generating Menge compliant xml files"
 
-        root = ET.Element("Experiment")
+        root = ElT.Element("Experiment")
 
         dict2etree(root, self.config['Experiment'])
 
@@ -559,18 +559,18 @@ class MengeMapParser:
                     new_common_attributes.set("pref_speed", str(speed))
 
         # define robot group
-        robot_group = ET.SubElement(root, "AgentGroup")
-        rob_profile_selector = ET.SubElement(robot_group, "ProfileSelector")
+        robot_group = ElT.SubElement(root, "AgentGroup")
+        rob_profile_selector = ElT.SubElement(robot_group, "ProfileSelector")
         rob_profile_selector.set("type", "const")
         rob_profile_selector.set("name", "robot")
-        rob_state_selector = ET.SubElement(robot_group, "StateSelector")
+        rob_state_selector = ElT.SubElement(robot_group, "StateSelector")
         rob_state_selector.set("type", "const")
         rob_state_selector.set("name", "Walk")
-        rob_generator = ET.SubElement(robot_group, "Generator")
+        rob_generator = ElT.SubElement(robot_group, "Generator")
         rob_generator.set("type", "explicit")
 
         for rob in range(int(num_robots)):
-            robot = ET.SubElement(rob_generator, "Agent")
+            robot = ElT.SubElement(rob_generator, "Agent")
             random_tgt_idx = np.random.choice(len(transformed_tgts[0]))
             robot_x = transformed_tgts[0][random_tgt_idx]
             robot_y = transformed_tgts[1][random_tgt_idx]
@@ -580,14 +580,14 @@ class MengeMapParser:
         agent_groups = []
         # define agent group(s)
         for profile_name in profile_names:
-            agent_group = ET.SubElement(root, "AgentGroup")
-            agt_profile_selector = ET.SubElement(agent_group, "ProfileSelector")
+            agent_group = ElT.SubElement(root, "AgentGroup")
+            agt_profile_selector = ElT.SubElement(agent_group, "ProfileSelector")
             agt_profile_selector.set("type", "const")
             agt_profile_selector.set("name", profile_name)
-            agt_state_selector = ET.SubElement(agent_group, "StateSelector")
+            agt_state_selector = ElT.SubElement(agent_group, "StateSelector")
             agt_state_selector.set("type", "const")
             agt_state_selector.set("name", "Walk")
-            agt_generator = ET.SubElement(agent_group, "Generator")
+            agt_generator = ElT.SubElement(agent_group, "Generator")
             agt_generator.set("type", "explicit")
             agent_groups.append(agent_group)
 
@@ -596,7 +596,7 @@ class MengeMapParser:
             random_group_idx = np.random.randint(len(agent_groups))
             generator = agent_groups[random_group_idx].find("Generator")
             # create agent in this group
-            agent = ET.SubElement(generator, "Agent")
+            agent = ElT.SubElement(generator, "Agent")
             # sample position from targets
             random_tgt_idx = np.random.choice(len(transformed_tgts[0]))
             agent_x = transformed_tgts[0][random_tgt_idx]
@@ -605,7 +605,7 @@ class MengeMapParser:
             agent.set("p_y", str(agent_y))
 
         # define obstacle set
-        obstacle_set = ET.SubElement(root, "ObstacleSet")
+        obstacle_set = ElT.SubElement(root, "ObstacleSet")
         obstacle_set.set("type", "explicit")
         obstacle_set.set("class", "1")
 
@@ -614,18 +614,18 @@ class MengeMapParser:
 
         # make obstacle for every contour
         for contour in self.contours + self.bounds:
-            obstacle = ET.SubElement(obstacle_set, "Obstacle")
+            obstacle = ElT.SubElement(obstacle_set, "Obstacle")
             obstacle.set("closed", "1")
             for point in contour:
                 obs_point_x, obs_point_y = pixel2meter(point, dims, res)
-                vertex = ET.SubElement(obstacle, "Vertex")
+                vertex = ElT.SubElement(obstacle, "Vertex")
                 vertex.set("p_x", str(obs_point_x))
                 vertex.set("p_y", str(obs_point_y))
 
         # prettify xml by indentation
         xml_indentation(root)
 
-        self.scene_tree = ET.ElementTree(root)
+        self.scene_tree = ElT.ElementTree(root)
 
         # write to file
         self.scene_tree.write(self.output['scene'], xml_declaration=True, encoding='utf-8', method="xml")
@@ -646,9 +646,9 @@ class MengeMapParser:
             "Unable to parse BFSM behavior field in config file.\n " \
             "Config file is required for generating Menge compliant xml files"
 
-        root = ET.Element("BFSM")
+        root = ElT.Element("BFSM")
 
-        goalset = ET.SubElement(root, "GoalSet")
+        goalset = ElT.SubElement(root, "GoalSet")
         goalset.set("id", str(0))
 
         res = self.resolution
@@ -657,7 +657,7 @@ class MengeMapParser:
             # create goal areas from boxes
             tgt_boxes = self.target_boxes
             for tgt_id, tgt_box in enumerate(tgt_boxes):
-                goal = ET.SubElement(goalset, "Goal")
+                goal = ElT.SubElement(goalset, "Goal")
                 goal.set("id", str(tgt_id))
                 goal.set("capacity", str(1000))
                 goal.set("type", "OBB")
@@ -689,7 +689,7 @@ class MengeMapParser:
                 random_idx = np.random.choice(len(transformed_tgts[0]))
                 tgt_x = transformed_tgts[0][random_idx]
                 tgt_y = transformed_tgts[1][random_idx]
-                goal = ET.SubElement(goalset, "Goal")
+                goal = ElT.SubElement(goalset, "Goal")
                 goal.set("id", str(tgt_id))
                 goal.set("capacity", str(1000))
                 goal.set("type", "circle")
@@ -708,7 +708,7 @@ class MengeMapParser:
         # prettify xml by indentation
         xml_indentation(root)
 
-        self.behavior_tree = ET.ElementTree(root)
+        self.behavior_tree = ElT.ElementTree(root)
 
         # write to file
         self.behavior_tree.write(self.output['behavior'], xml_declaration=True, encoding='utf-8', method="xml")
