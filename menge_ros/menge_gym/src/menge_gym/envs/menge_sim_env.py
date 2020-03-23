@@ -347,7 +347,7 @@ class MengeGym(gym.Env):
         robot_omega = 2 * np.arccos(robot_pose.orientation.w)
 
         # update list of robot poses + pointer to current position
-        self._robot_poses.append(np.array([robot_x, robot_y, robot_omega]).reshape(-1, 3))
+        self._robot_poses.append(np.array([robot_x, robot_y, robot_omega, self.config.robot_radius]).reshape(-1, 4))
 
     def _done_callback(self, msg: Bool):
         rp.logdebug('Done message received')
@@ -382,16 +382,16 @@ class MengeGym(gym.Env):
 
         # in first iteration, initialize Kalman Tracker for robot
         if not self.rob_tracker:
-            self.rob_tracker = KalmanTracker(self._robot_poses[0][:, :3])
+            self.rob_tracker = KalmanTracker(self._robot_poses[0])
 
         # update velocities
         for (robot_pose, crowd_pose) in zip(self._robot_poses, self._crowd_poses):
             rp.logdebug("Robot Pose (Shape %r):\n %r" % (robot_pose.shape, robot_pose))
             rp.logdebug("Crowd Pose (Shape %r):\n %r" % (crowd_pose.shape, crowd_pose))
             # state = np.concatenate((robot_pose[:, :3], crowd_pose[:, :3]), axis=0)
-            ped_trackers = self.ped_tracker.update(crowd_pose[:, :3])
+            ped_trackers = self.ped_tracker.update(crowd_pose)
             self.rob_tracker.predict()
-            self.rob_tracker.update(robot_pose[:, :3])
+            self.rob_tracker.update(robot_pose)
         rob_tracker = self.rob_tracker.get_state()
         trackers = np.concatenate((np.concatenate((rob_tracker, [[0]]), axis=1).reshape(1, -1), ped_trackers), axis=0)
         combined_state = trackers[trackers[:, -1].argsort()]

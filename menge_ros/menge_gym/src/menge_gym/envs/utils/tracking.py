@@ -32,25 +32,27 @@ class KalmanTracker(object):
         """
         Initialises a tracker using initial coordinates.
 
-        @:param coords: initial 2D coordinates (x, y, omega) of the object to be tracked
+        @:param coords: initial 2D coordinates (x, y, theta, radius) of the object to be tracked
         """
         # define constant velocity model
-        self.kf = KalmanFilter(dim_x=6, dim_z=3)
-        self.kf.F = np.array([[1, 0, 0, 1, 0, 0],
-                              [0, 1, 0, 0, 1, 0],
-                              [0, 0, 1, 0, 0, 1],
-                              [0, 0, 0, 1, 0, 0],
-                              [0, 0, 0, 0, 1, 0],
-                              [0, 0, 0, 0, 0, 1]])
-        self.kf.H = np.array([[1, 0, 0, 0, 0, 0],
-                              [0, 1, 0, 0, 0, 0],
-                              [0, 0, 1, 0, 0, 0]])
+        self.kf = KalmanFilter(dim_x=7, dim_z=4)
+        self.kf.F = np.array([[1, 0, 0, 0, 1, 0, 0],
+                              [0, 1, 0, 0, 0, 1, 0],
+                              [0, 0, 1, 0, 0, 0, 1],
+                              [0, 0, 0, 1, 0, 0, 0],
+                              [0, 0, 0, 0, 1, 0, 0],
+                              [0, 0, 0, 0, 0, 1, 0],
+                              [0, 0, 0, 0, 0, 0, 1]])
+        self.kf.H = np.array([[1, 0, 0, 0, 0, 0, 0],
+                              [0, 1, 0, 0, 0, 0, 0],
+                              [0, 0, 1, 0, 0, 0, 0],
+                              [0, 0, 0, 1, 0, 0, 0]])
 
-        self.kf.P[3:, 3:] *= 1000.  # give high uncertainty to the unobservable initial velocities
+        self.kf.P[4:, 4:] *= 1000.  # give high uncertainty to the unobservable initial velocities
         self.kf.P *= 10.
-        self.kf.Q[3:, 3:] *= 0.01
+        self.kf.Q[4:, 4:] *= 0.01
 
-        self.kf.x[:3] = coords.reshape((3, 1))
+        self.kf.x[:4] = coords.reshape((4, 1))
         self.time_since_update = 0
         self.id = KalmanTracker.count
         KalmanTracker.count += 1
@@ -63,13 +65,13 @@ class KalmanTracker(object):
         """
         Updates the state vector with observed coordinates.
 
-        @:param coords: updated 2D coordinates (x, y, omega) of the object to be tracked
+        @:param coords: updated 2D coordinates (x, y, theta, radius) of the object to be tracked
         """
         self.time_since_update = 0
         self.history = []
         self.hits += 1
         self.hit_streak += 1
-        self.kf.update(coords.reshape((3, 1)))
+        self.kf.update(coords.reshape((4, 1)))
 
     def predict(self) -> np.ndarray:
         """
@@ -81,13 +83,13 @@ class KalmanTracker(object):
             self.hit_streak = 0
         self.time_since_update += 1
         self.history.append(self.kf.x)
-        return self.history[-1][:3].reshape((1, 3))
+        return self.history[-1][:4].reshape((1, 4))
 
     def get_state(self) -> np.ndarray:
         """
         Returns the current state estimate.
         """
-        return self.kf.x.reshape((1, 6))
+        return self.kf.x.reshape((1, 7))
 
 
 def associate_detections_to_trackers(detections: np.ndarray, trackers: np.ndarray,
@@ -98,9 +100,9 @@ def associate_detections_to_trackers(detections: np.ndarray, trackers: np.ndarra
     Returns 3 lists of matches, unmatched_detections and unmatched_trackers
     """
     if len(trackers) == 0:
-        return np.empty((0, 2), dtype=int), np.arange(len(detections)), np.empty((0, 3), dtype=int)
+        return np.empty((0, 2), dtype=int), np.arange(len(detections)), np.empty((0, 4), dtype=int)
     elif len(detections) == 0:
-        return np.empty((0, 2), dtype=int), np.empty((0, 3), dtype=int), np.arange(len(trackers))
+        return np.empty((0, 2), dtype=int), np.empty((0, 4), dtype=int), np.arange(len(trackers))
 
     distance_matrix = euclidean_distances(detections, trackers)
     row_matched_indices, col_matched_indices = linear_sum_assignment(distance_matrix)
@@ -142,21 +144,21 @@ class Sort(object):
 
     def update(self, dets: np.ndarray) -> np.ndarray:
         """
-        @:param: dets - a numpy array of detections in the format [[x,y,phi],[x,y,phi],...]
+        @:param: dets - a numpy array of detections in the format [[x,y,theta,r],[x,y,theta,r],...]
         :requires: this method must be called once for each frame even with empty detections.
-        :return: numpy array for the states [x,y,omega,x_dot,y_dot,omega_dot] of the tracked objects,
+        :return: numpy array for the states [x,y,theta,r,x_dot,y_dot,theta_dot] of the tracked objects,
         where the last column is the object ID.
 
         NOTE: The number of objects returned may differ from the number of detections provided.
         """
         self.frame_count += 1
         # get predicted locations from existing combined_state.
-        trks = np.zeros((len(self.trackers), 3))
+        trks = np.zeros((len(self.trackers), 4))
         to_del = []
         ret = []
         for t, trk in enumerate(trks):
             pos = self.trackers[t].predict()[0]
-            trk[:] = [pos[0], pos[1], pos[2]]
+            trk[:] = [pos[0], pos[1], pos[2], pos[3]]
             if np.any(np.isnan(pos)):
                 to_del.append(t)
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
@@ -185,4 +187,4 @@ class Sort(object):
                 self.trackers.pop(i)
         if len(ret) > 0:
             return np.concatenate(ret)
-        return np.empty((0, 7))
+        return np.empty((0, 8))
