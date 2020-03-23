@@ -29,7 +29,7 @@ class MengeGym(gym.Env):
     def __init__(self):
         super(MengeGym, self).__init__()
 
-        self.config = None
+        self.config = Config()
 
         # Environment variables
         self.config.time_limit = None
@@ -52,7 +52,7 @@ class MengeGym(gym.Env):
         self.config.robot_rotation_sampling = None
         self.config.num_speeds = None
         self.config.num_angles = None
-        self.config.self.rotation_constraint = None
+        self.config.rotation_constraint = None
         self.config.robot_v_pref = None
         self.config.robot_visibility = None
 
@@ -178,7 +178,7 @@ class MengeGym(gym.Env):
 
         # Robot
         v_max = self.config.robot_v_pref
-        self.config.rotation_constraint = config.robot.self.rotation_constraint
+        self.config.rotation_constraint = config.robot.rotation_constraint
         self.config.num_speeds = config.robot.action_space.speed_samples
         self.config.num_angles = config.robot.action_space.rotation_samples
         self.config.robot_speed_sampling = config.robot.action_space.speed_sampling
@@ -237,7 +237,7 @@ class MengeGym(gym.Env):
         self.config.human_num = len(scene_root.findall("AgentGroup/Generator/Agent")) - 1
         # extract robot pref_speed from scene_xml file
         robot_v_pref = scene_root.find("AgentProfile/Common[@external='1']").get('pref_speed')
-        if self.config.robot_v_pref is not None:
+        if robot_v_pref is not None:
             self.config.robot_v_pref = float(robot_v_pref)
         else:
             # pref_speed is inherited from other AgentProfile
