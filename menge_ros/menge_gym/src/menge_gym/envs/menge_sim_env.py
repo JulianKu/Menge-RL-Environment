@@ -10,6 +10,7 @@ from geometry_msgs.msg import PoseArray, PoseStamped, Twist
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Bool
 from menge_srv.srv import RunSim, CmdVel, CmdVelResponse
+from env_config.config import Config
 from MengeMapParser import MengeMapParser
 from .utils.ros import obstacle2array, marker2array, ROSHandle  # ,pose2array, launch
 from .utils.params import goal2array, get_robot_initial_position, parseXML
@@ -31,13 +32,14 @@ class MengeGym(gym.Env):
         self.config = None
 
         # Environment variables
-        self.time_limit = None
-        self.time_step = None
-        self.randomize_attributes = None
-        self.robot_sensor_range = None
+        self.config.time_limit = None
+        self.config.time_step = None
+        self.config.randomize_attributes = None
+        self.config.human_num = None
+        self.config.robot_sensor_range = None
 
         # Simulation scenario variables
-        self.scenario_xml = None
+        self.config.scenario_xml = None
         self.scene_xml = None
         self.behavior_xml = None
         self.initial_robot_pos = None
@@ -45,18 +47,23 @@ class MengeGym(gym.Env):
         self.goal = None
 
         # Robot variables
-        self.robot_config = {}
-        self.robot_speed_sampling = None
-        self.robot_rotation_sampling = None
+        self.config.robot_config = None
+        self.config.robot_speed_sampling = None
+        self.config.robot_rotation_sampling = None
+        self.config.num_speeds = None
+        self.config.num_angles = None
+        self.config.self.rotation_constraint = None
+        self.config.robot_v_pref = None
+        self.config.robot_visibility = None
 
         # Reward variables
-        self.success_reward = None
-        self.collision_penalty_crowd = None
-        self.discomfort_dist = None
-        self.discomfort_penalty_factor = None
-        self.collision_penalty_obs = None
-        self.clearance_dist = None
-        self.clearance_penalty_factor = None
+        self.config.success_reward = None
+        self.config.collision_penalty_crowd = None
+        self.config.discomfort_dist = None
+        self.config.discomfort_penalty_factor = None
+        self.config.collision_penalty_obs = None
+        self.config.clearance_dist = None
+        self.config.clearance_penalty_factor = None
 
         # Observation variables
         self._crowd_poses = []  # type: List[np.ndarray]
@@ -82,23 +89,23 @@ class MengeGym(gym.Env):
         self._step_done = None
         self._cmd_vel_srv = None
         self._advance_sim_srv = None
-        self.ros_rate = None
+        self.config.ros_rate = None
         self._rate = None
 
     def configure(self, config):
 
-        self.config = config
+        self.config = Config()
 
         # Environment
-        self.time_limit = config.env.time_limit
-        self.time_step = config.env.time_step
+        self.config.time_limit = config.env.time_limit
+        self.config.time_step = config.env.time_step
 
         # Simulation
         if hasattr(config.sim, 'scenario') and path.isfile(config.sim.scenario):
-            self.scenario_xml = config.sim.scenario
+            self.config.scenario_xml = config.sim.scenario
         # if no scenario provided, make new from image + parameters
         else:
-            print("No scenario found ({})".format(self.scenario_xml))
+            print("No scenario found ({})".format(self.config.scenario_xml))
             key = input("Do you want to create a new scenario instead? (Y/N)")
             if key.lower() != 'y':
                 raise ValueError("Scenario xml specified in config does not point to valid xml file")
@@ -126,17 +133,20 @@ class MengeGym(gym.Env):
                 else:
                     # only executed if for loop not ended with break statement
                     raise ValueError("No valid resolution provided")
-
+                
+                self.config.robot_config = {}
                 for param in vars(config.robot):
                     if param == 'radius':
-                        self.robot_config['r'] = config.robot.radius
+                        self.config.robot_config['r'] = config.robot.radius
+                    elif param == 'v_pref':
+                        self.config.robot_config['pref_speed'] = config.robot.v_pref
                     elif param == 'sensor_range':
-                        self.robot_config['range_max'] = config.robot.sensor_range
+                        self.config.robot_config['range_max'] = config.robot.sensor_range
                     elif param == 'fov':
-                        self.robot_config['start_angle'] = -config.robot.fov / 2
-                        self.robot_config['end_angle'] = config.robot.fov / 2
+                        self.config.robot_config['start_angle'] = -config.robot.fov / 2
+                        self.config.robot_config['end_angle'] = config.robot.fov / 2
                     elif param == 'sensor_resolution':
-                        self.robot_config['increment'] = config.robot.sensor_resolution
+                        self.config.robot_config['increment'] = config.robot.sensor_resolution
 
                 kwargs = {}
                 if hasattr(config.sim, 'human_num'):
@@ -145,12 +155,12 @@ class MengeGym(gym.Env):
                     # randomize humans' radius and preferred speed
                     kwargs['randomize_attributes'] = config.sim.randomize_attributes
                     kwargs['num_samples'] = 3
-                if self.robot_config:
-                    kwargs['robot_config'] = self.robot_config
+                if self.config.robot_config:
+                    kwargs['robot_config'] = self.config.robot_config
 
                 img_parser = MengeMapParser(map_img, resolution)
                 img_parser.full_process(**kwargs)
-                self.scenario_xml = img_parser.output['base']
+                self.config.scenario_xml = img_parser.output['base']
         # get more parameters from scenario xml
         self._initialize_from_scenario()
 
@@ -158,55 +168,58 @@ class MengeGym(gym.Env):
         self.sample_goal(exclude_initial=True)
 
         # Reward
-        self.success_reward = config.reward.success_reward
-        self.collision_penalty_crowd = config.reward.collision_penalty_crowd
-        self.discomfort_dist = config.reward.discomfort_dist
-        self.discomfort_penalty_factor = config.reward.discomfort_penalty_factor
-        self.collision_penalty_obs = config.reward.collision_penalty_obs
-        self.clearance_dist = config.reward.clearance_dist
-        self.clearance_penalty_factor = config.reward.clearance_dist_penalty_factor
+        self.config.success_reward = config.reward.success_reward
+        self.config.collision_penalty_crowd = config.reward.collision_penalty_crowd
+        self.config.discomfort_dist = config.reward.discomfort_dist
+        self.config.discomfort_penalty_factor = config.reward.discomfort_penalty_factor
+        self.config.collision_penalty_obs = config.reward.collision_penalty_obs
+        self.config.clearance_dist = config.reward.clearance_dist
+        self.config.clearance_penalty_factor = config.reward.clearance_dist_penalty_factor
 
         # Robot
-        v_max = config.robot.v_pref
-        rotation_constraint = config.robot.rotation_constraint
-        num_speeds = config.robot.action_space.speed_samples
-        num_angles = config.robot.action_space.rotation_samples
-        self.robot_speed_sampling = config.robot.action_space.speed_sampling
-        self.robot_rotation_sampling = config.robot.action_space.rotation_sampling
+        v_max = self.config.robot_v_pref
+        self.config.rotation_constraint = config.robot.self.rotation_constraint
+        self.config.num_speeds = config.robot.action_space.speed_samples
+        self.config.num_angles = config.robot.action_space.rotation_samples
+        self.config.robot_speed_sampling = config.robot.action_space.speed_sampling
+        self.config.robot_rotation_sampling = config.robot.action_space.rotation_sampling
+        self.config.robot_visibility = config.robot.visible
         # action space
         # from paper RGL for CrowdNav --> 6 speeds [0, v_pref] and 16 headings [0, 2*pi)
-        if self.robot_speed_sampling == 'exponential':
+        if self.config.robot_speed_sampling == 'exponential':
             # exponentially distributed speeds (distributed between 0 and v_max)
-            self._velocities = np.geomspace(1, v_max + 1, num_speeds + 1, endpoint=True) - 1
-        elif self.robot_speed_sampling == 'linear':
-            self._velocities = np.linspace(0, v_max, num_speeds + 1, endpoint=True)
+            self._velocities = np.geomspace(1, v_max + 1, self.config.num_speeds + 1, endpoint=True) - 1
+        elif self.config.robot_speed_sampling == 'linear':
+            self._velocities = np.linspace(0, v_max, self.config.num_speeds + 1, endpoint=True)
         else:
             raise NotImplementedError
 
-        if self.robot_rotation_sampling == 'linear':
+        if self.config.robot_rotation_sampling == 'linear':
             # linearly distributed angles
             # make num_angles odd to ensure null action (0 --> not changing steering)
-            num_angles = num_angles // 2 * 2 + 1
+            self.config.num_angles = self.config.num_angles // 2 * 2 + 1
             # angles between -45° und +45° in contrast to paper between -pi and +pi
-            self._angles = np.linspace(-rotation_constraint, rotation_constraint, num_angles, endpoint=True)
-        elif self.robot_rotation_sampling == 'exponential':
+            self._angles = np.linspace(-self.config.rotation_constraint, self.config.rotation_constraint,
+                                       self.config.num_angles, endpoint=True)
+        elif self.config.robot_rotation_sampling == 'exponential':
             min_angle_increment = 1             # (in deg)
             min_angle_increment *= np.pi / 180  # (in rad)
-            positive_angles = np.geomspace(min_angle_increment, rotation_constraint, num_angles//2, endpoint=True)
+            positive_angles = np.geomspace(min_angle_increment, self.config.rotation_constraint,
+                                           self.config.num_angles//2, endpoint=True)
             self._angles = np.concatenate((-positive_angles[::-1], [0], positive_angles))
         else:
             raise NotImplementedError
 
-        self.action_space = spaces.MultiDiscrete([num_speeds, num_angles])
+        self.action_space = spaces.MultiDiscrete([self.config.num_speeds, self.config.num_angles])
 
         self.case_size = {'train': config.env.train_size, 'val': config.env.val_size,
                           'test': config.env.test_size}
         self.case_counter = {'train': 0, 'test': 0, 'val': 0}
 
-        self.ros_rate = config.ros.rate
+        self.config.ros_rate = config.ros.rate
 
     def _initialize_from_scenario(self):
-        scenario_xml = self.scenario_xml
+        scenario_xml = self.config.scenario_xml
         scenario_dir = path.split(scenario_xml)[0]
         scenario_root = parseXML(scenario_xml)
 
@@ -217,9 +230,20 @@ class MengeGym(gym.Env):
             self.scene_xml = scene_xml
         assert path.isfile(self.scene_xml), 'Scene file specified in scenario_xml non-existent'
 
-        # extract robot radius from scene_xml file
         scene_root = parseXML(self.scene_xml)
-        self.robot_radius = float(scene_root.find("AgentProfile/Common[@external='1']").get('r'))
+        # extract robot radius from scene_xml file
+        self.config.robot_radius = float(scene_root.find("AgentProfile/Common[@external='1']").get('r'))
+        # extract number of humans from scene_xml file
+        self.config.human_num = len(scene_root.findall("AgentGroup/Generator/Agent")) - 1
+        # extract robot pref_speed from scene_xml file
+        robot_v_pref = scene_root.find("AgentProfile/Common[@external='1']").get('pref_speed')
+        if self.config.robot_v_pref is not None:
+            self.config.robot_v_pref = float(robot_v_pref)
+        else:
+            # pref_speed is inherited from other AgentProfile
+            inherited_agt_profile = scene_root.find("AgentProfile/Common[@external='1']/..").get('inherits')
+            self.config.robot_v_pref = float(scene_root.find("AgentProfile[@name='{}']/Common"
+                                                             .format(inherited_agt_profile)).get('pref_speed'))
 
         behavior_xml = scenario_root.get('behavior')
         if not path.isabs(behavior_xml):
@@ -244,7 +268,7 @@ class MengeGym(gym.Env):
                 self.initial_robot_pos = get_robot_initial_position(self.scene_xml)
             # if initial robot position falls within goal, exclude this goal from sampling
             dist_rob_goals = np.linalg.norm(goals_array[:, :2] - self.initial_robot_pos, axis=1) - goals_array[:, 2] \
-                             - self.robot_radius
+                             - self.config.robot_radius
             # mask out respective goal(s)
             mask = dist_rob_goals > 0
             goals_array = goals_array[mask]
@@ -255,7 +279,7 @@ class MengeGym(gym.Env):
         rp.loginfo("Initializing ROS")
         self.roshandle = ROSHandle()
 
-        # TODO: rviz config not loaded properly (workaround: start rviz seperately via launch file etc.)
+        # TODO: rviz config not loaded properly (workaround: start rviz separately via launch file etc.)
         # visualization = True
         # if visualization:
         #     # Get rviz configuration file from "menge_vis" package
@@ -266,13 +290,13 @@ class MengeGym(gym.Env):
         rp.on_shutdown(self.close)
 
         rp.loginfo("Start Menge simulator node")
-        # launch_cli_args = {'project': self.scenario_xml,
+        # launch_cli_args = {'project': self.config.scenario_xml,
         #                    'timeout': self.timeout,
-        #                    'timestep': self.time_step}
+        #                    'timestep': self.config.time_step}
         # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
-        cli_args = {'p': self.scenario_xml,
-                    'd': self.time_limit,
-                    't': self.time_step}
+        cli_args = {'p': self.config.scenario_xml,
+                    'd': self.config.time_limit,
+                    't': self.config.time_step}
         self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
         rp.sleep(5)
         # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
@@ -294,8 +318,8 @@ class MengeGym(gym.Env):
         self._advance_sim_srv = rp.ServiceProxy('advance_simulation', RunSim)
 
         # initialize time
-        # self._run_duration = rp.Duration(self.time_step)
-        self._rate = rp.Rate(self.ros_rate)
+        # self._run_duration = rp.Duration(self.config.time_step)
+        self._rate = rp.Rate(self.config.ros_rate)
 
     # def _crowd_pose_callback(self, msg: PoseArray):
     #     rp.logdebug('Crowd Pose subscriber callback called')
@@ -436,7 +460,7 @@ class MengeGym(gym.Env):
         # robot_pose = [x, y, omega]
         recent_robot_pose = self._robot_poses[-1]
 
-        robot_radius = self.robot_radius
+        robot_radius = self.config.robot_radius
         goal = self.goal
 
         crowd_distances = np.linalg.norm(recent_crowd_pose[:, :2] - recent_robot_pose[:, :2], axis=1)
@@ -469,29 +493,31 @@ class MengeGym(gym.Env):
             info = Timeout()
         # collision with crowd
         elif d_min_crowd < 0:
-            reward = self.collision_penalty_crowd
+            reward = self.config.collision_penalty_crowd
             done = True
             info = Collision('Crowd')
         # collision with obstacle
         elif d_min_obstacle < 0:
-            reward = self.collision_penalty_obs
+            reward = self.config.collision_penalty_obs
             done = True
             info = Collision('Obstacle')
         # goal reached
         elif d_goal < 0:
-            reward = self.success_reward
+            reward = self.config.success_reward
             done = True
             info = ReachGoal()
         # too close to people
-        elif d_min_crowd < self.discomfort_dist:
+        elif d_min_crowd < self.config.discomfort_dist:
             # adjust the reward based on FPS
-            reward = (d_min_crowd - self.discomfort_dist) * self.discomfort_penalty_factor * self.time_step
+            reward = (d_min_crowd - self.config.discomfort_dist) * self.config.discomfort_penalty_factor \
+                     * self.config.time_step
             done = False
             info = Discomfort(d_min_crowd)
         # too close to obstacles
-        elif d_min_obstacle < self.clearance_dist:
+        elif d_min_obstacle < self.config.clearance_dist:
             # adjust the reward based on FPS
-            reward = (d_min_obstacle - self.clearance_dist) * self.clearance_penalty_factor * self.time_step
+            reward = (d_min_obstacle - self.config.clearance_dist) * self.config.clearance_penalty_factor \
+                     * self.config.time_step
             done = False
             info = Clearance(d_min_obstacle)
         else:
@@ -513,13 +539,13 @@ class MengeGym(gym.Env):
         # self._sim_process.shutdown()
 
         rp.loginfo("Env reset - Starting new simulation process")
-        # launch_cli_args = {'project': self.scenario_xml,
+        # launch_cli_args = {'project': self.config.scenario_xml,
         #                    'timeout': self.timeout,
-        #                    'timestep': self.time_step}
+        #                    'timestep': self.config.time_step}
         # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
-        cli_args = {'p': self.scenario_xml,
-                    'd': self.time_limit,
-                    't': self.time_step}
+        cli_args = {'p': self.config.scenario_xml,
+                    'd': self.config.time_limit,
+                    't': self.config.time_step}
         self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
         rp.sleep(5)
         # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)

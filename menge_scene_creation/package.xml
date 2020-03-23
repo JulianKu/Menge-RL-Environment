@@ -55,6 +55,7 @@
   <depend>python3-opencv</depend>
   <depend>python-skimage</depend>
   <depend>python3-yaml</depend>
+  <depend>python3-triangle-pip</depend>
   <depend>rospy</depend>
 
 

@@ -41,7 +41,7 @@ class BaseEnvConfig(object):
     humans.sensor = 'coordinates'
 
     robot = Config()
-    robot.visible = False
+    robot.visible = True
     robot.policy = 'none'
     robot.radius = 0.3
     robot.v_pref = 1

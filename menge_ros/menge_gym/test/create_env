@@ -4,7 +4,7 @@ import gym
 import numpy as np
 import rospy as rp
 import tqdm
-import config
+from env_config import config
 
 
 def main():
