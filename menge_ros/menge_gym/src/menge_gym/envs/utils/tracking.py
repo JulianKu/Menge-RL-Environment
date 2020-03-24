@@ -32,7 +32,7 @@ class KalmanTracker(object):
         """
         Initialises a tracker using initial coordinates.
 
-        @:param coords: initial 2D coordinates (x, y, theta, radius) of the object to be tracked
+        @:param coords: initial 2D coordinates (x, y, phi, radius) of the object to be tracked
         """
         # define constant velocity model
         self.kf = KalmanFilter(dim_x=7, dim_z=4)
@@ -65,7 +65,7 @@ class KalmanTracker(object):
         """
         Updates the state vector with observed coordinates.
 
-        @:param coords: updated 2D coordinates (x, y, theta, radius) of the object to be tracked
+        @:param coords: updated 2D coordinates (x, y, phi, radius) of the object to be tracked
         """
         self.time_since_update = 0
         self.history = []
@@ -144,9 +144,9 @@ class Sort(object):
 
     def update(self, dets: np.ndarray) -> np.ndarray:
         """
-        @:param: dets - a numpy array of detections in the format [[x,y,theta,r],[x,y,theta,r],...]
+        @:param: dets - a numpy array of detections in the format [[x,y,phi,r],[x,y,phi,r],...]
         :requires: this method must be called once for each frame even with empty detections.
-        :return: numpy array for the states [x,y,theta,r,x_dot,y_dot,theta_dot] of the tracked objects,
+        :return: numpy array for the states [x,y,phi,r,x_dot,y_dot,phi_dot] of the tracked objects,
         where the last column is the object ID.
 
         NOTE: The number of objects returned may differ from the number of detections provided.
