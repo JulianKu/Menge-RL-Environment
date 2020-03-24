@@ -3,7 +3,6 @@
 import gym
 from gym import spaces
 import numpy as np
-import torch
 from os import path
 import rospy as rp
 import rosnode
@@ -18,6 +17,7 @@ from .utils.params import goal2array, get_robot_initial_position, parseXML
 from .utils.info import *
 from .utils.tracking import Sort, KalmanTracker
 from .utils.format import format_array
+from .utils.state import FullState, ObservableState, ObstacleState, JointState
 from typing import List, Union
 
 
@@ -277,7 +277,7 @@ class MengeGym(gym.Env):
 
         self.goal = goals_array[np.random.randint(len(goals_array))]
         # set constant part of the robot's state
-        self.robot_const_state = np.concatenate((self.goal[:2], [self.config.robot_v_pref])).reshape(-1, 3)
+        self.robot_const_state = np.concatenate((self.goal, [self.config.robot_v_pref])).reshape(-1, 4)
 
     def setup_ros_connection(self):
         rp.loginfo("Initializing ROS")
@@ -397,10 +397,11 @@ class MengeGym(gym.Env):
             self.rob_tracker.predict()
             self.rob_tracker.update(robot_pose)
         rob_tracker = self.rob_tracker.get_state()
-        pedestrian_state = torch.Tensor(ped_trackers[ped_trackers[:, -1].argsort()][:, :-1])
-        robot_state = torch.Tensor(np.concatenate((rob_tracker, self.robot_const_state), axis=1))
+        pedestrian_state = ObservableState(ped_trackers[ped_trackers[:, -1].argsort()][:, :-1])
+        robot_state = FullState(np.concatenate((rob_tracker, self.robot_const_state), axis=1))
+        obstacle_state = ObstacleState(self._static_obstacles)
 
-        ob = (robot_state, pedestrian_state, self._static_obstacles)
+        ob = JointState(robot_state, pedestrian_state, obstacle_state)
 
         # reset last poses
         self._crowd_poses = []
