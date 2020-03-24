@@ -190,9 +190,11 @@ class MengeGym(gym.Env):
         # from paper RGL for CrowdNav --> 6 speeds [0, v_pref] and 16 headings [0, 2*pi)
         if self.config.robot_speed_sampling == 'exponential':
             # exponentially distributed speeds (distributed between 0 and v_max)
-            self._velocities = np.geomspace(1, v_max + 1, self.config.num_speeds + 1, endpoint=True) - 1
+            self.config.num_speeds += 1  # to include 0 as well
+            self._velocities = np.geomspace(1, v_max + 1, self.config.num_speeds, endpoint=True) - 1
         elif self.config.robot_speed_sampling == 'linear':
-            self._velocities = np.linspace(0, v_max, self.config.num_speeds + 1, endpoint=True)
+            self.config.num_speeds += 1  # to include 0 as well
+            self._velocities = np.linspace(0, v_max, self.config.num_speeds, endpoint=True)
         else:
             raise NotImplementedError
 
