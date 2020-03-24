@@ -78,6 +78,7 @@ class MengeGym(gym.Env):
         # Action variables
         self._velocities = None
         self._angles = None
+        self.action_array = None
         self._action = None  # type: Union[None, np.ndarray]
 
         # Schedule variables
@@ -214,6 +215,8 @@ class MengeGym(gym.Env):
         else:
             raise NotImplementedError
 
+        self.action_array = np.array(np.meshgrid(self._velocities, self._angles)).T.reshape(
+            self.config.num_speeds, self.config.num_angles, -1)
         self.action_space = spaces.MultiDiscrete([self.config.num_speeds, self.config.num_angles])
 
         self.case_size = {'train': config.env.train_size, 'val': config.env.val_size,
