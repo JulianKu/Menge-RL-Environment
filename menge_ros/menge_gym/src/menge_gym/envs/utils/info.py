@@ -31,13 +31,13 @@ class Clearance(object):
 
 
 class Collision(object):
-    def __init__(self, target=None):
-        self.target = target
+    def __init__(self, partner=None):
+        self.partner = partner
 
     def __str__(self):
         ret_str = 'Collision'
-        if self.target:
-            ret_str += ' with ' + self.target
+        if self.partner:
+            ret_str += ' with ' + self.partner
         return ret_str
 
 
