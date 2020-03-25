@@ -45,6 +45,7 @@ class MengeGym(gym.Env):
         self.behavior_xml = None
         self.initial_robot_pos = None
         self.goals_array = None
+        self.global_time = None
 
         # Robot variables
         self.config.robot_config = None
@@ -427,8 +428,9 @@ class MengeGym(gym.Env):
         # Not sure why, but advance_sim service kept getting stuck (not reaching simulator node)
         # sleep is a working hack around this, not nice though
         self._rate.sleep()
-        # advance simulation by one step
-        while not self._advance_sim_srv(1):
+        # advance simulation by n steps (n=1)
+        n_steps = 1
+        while not self._advance_sim_srv(n_steps):
             rp.logwarn("Simulation not paused, service failed")
             self._pub_run.publish(Bool(data=False))
         rp.logdebug("Service called")
@@ -442,6 +444,7 @@ class MengeGym(gym.Env):
             self._rate.sleep()
         rp.logdebug('Done %r, #Crowd %d, #Rob %d' %
                     (self._step_done, len(self._crowd_poses), len(self._robot_poses)))
+        self.global_time += n_steps * self.config.time_step
         self._step_done = False
         self._action = None
 
@@ -541,6 +544,7 @@ class MengeGym(gym.Env):
 
         :return: initial observation (ob return from step)
         """
+        self.global_time = 0
         rp.loginfo("Env reset - Shutting down simulation process")
         # self._sim_process.terminate()
         # self._sim_process.wait()
