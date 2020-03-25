@@ -575,13 +575,19 @@ class MengeGym(gym.Env):
         """
         if close:
             self.close()
-        trackers = self.combined_state
-        if len(trackers):
+        states = self.observation  # type: JointState
+        rob_state = states.robot_state.observable_state
+        ped_states = states.human_states.state
+        if len(rob_state) or len(ped_states):
             rp.loginfo('Tracked Objects')
-            trackers_str = format_array(trackers[:, :-1],
-                                        row_labels=trackers[:, -1].astype(int),
-                                        col_labels=['x', 'y', 'omega', 'x_dot', 'y_dot', 'omega_dot'])
-            rp.loginfo('\n' + trackers_str)
+            combined_state = np.concatenate((rob_state, ped_states), axis=0)
+            row_labels = ['human {}'.format(i+1) for i in range(len(ped_states))]
+            if len(rob_state):
+                row_labels.insert(0, 'robot')
+            state_str = format_array(combined_state,
+                                     row_labels=row_labels,
+                                     col_labels=['x', 'y', 'phi', 'r', 'x_dot', 'y_dot', 'omega_dot'])
+            rp.loginfo('\n' + state_str)
         else:
             rp.logwarn("No objects tracked")
         rp.loginfo('\nNumber of static obstacles: %d\n' % len(self._static_obstacles))

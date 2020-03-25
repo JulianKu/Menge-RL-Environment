@@ -7,8 +7,9 @@ class FullState(object):
     def __init__(self, state: np.ndarray):
         assert state.size % 11 == 0, "FullState needs to be composed of " \
                                      "p_x, p_y, angle_z, r, v_x, v_y, v_angular, g_x, g_y, r_goal and v_pref"
-        state = state.reshape(-1, 10)
+        state = state.reshape(-1, 11)
         self.state = state
+        self.observable_state = state[:, :7]
 
         self.position = state[:, :2]
         self.angle = state[:, 2]
