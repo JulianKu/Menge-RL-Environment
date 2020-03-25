@@ -73,8 +73,8 @@ class MengeGym(gym.Env):
         self._robot_poses = []  # type: List[np.ndarray]
         self._static_obstacles = np.array([], dtype=float)
         self.rob_tracker = None
-        self.ped_tracker = Sort()
-        self.combined_state = np.array([], dtype=float)
+        self.ped_tracker = None
+        self.observation = None
 
         # Action variables
         self._velocities = None
@@ -169,6 +169,9 @@ class MengeGym(gym.Env):
                 self.config.scenario_xml = img_parser.output['base']
         # get more parameters from scenario xml
         self._initialize_from_scenario()
+
+        # setup pedestrian tracker
+        self.ped_tracker = Sort(max_age=2, min_hits=2, d_max=2*self.config.robot_v_pref*self.config.time_step)
 
         # sample first goal
         self.sample_goal(exclude_initial=True)
@@ -319,7 +322,6 @@ class MengeGym(gym.Env):
         self._advance_sim_srv = rp.ServiceProxy('advance_simulation', RunSim)
 
         # initialize time
-        # self._run_duration = rp.Duration(self.config.time_step)
         self._rate = rp.Rate(self.config.ros_rate)
 
     # def _crowd_pose_callback(self, msg: PoseArray):
@@ -397,8 +399,8 @@ class MengeGym(gym.Env):
         pedestrian_state = ObservableState(ped_trackers[ped_trackers[:, -1].argsort()][:, :-1])
         robot_state = FullState(np.concatenate((rob_tracker, self.robot_const_state), axis=1))
         obstacle_state = ObstacleState(self._static_obstacles)
-
-        ob = JointState(robot_state, pedestrian_state, obstacle_state)
+        self.observation = JointState(robot_state, pedestrian_state, obstacle_state)
+        ob = self.observation
 
         # reset last poses
         self._crowd_poses = []

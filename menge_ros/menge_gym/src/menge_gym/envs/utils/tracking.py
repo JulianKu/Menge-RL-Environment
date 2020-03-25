@@ -133,12 +133,13 @@ def associate_detections_to_trackers(detections: np.ndarray, trackers: np.ndarra
 
 
 class Sort(object):
-    def __init__(self, max_age=1, min_hits=3):
+    def __init__(self, max_age=1, min_hits=3, d_max=None):
         """
         Sets key parameters for SORT
         """
         self.max_age = max_age
         self.min_hits = min_hits
+        self.d_max = d_max
         self.trackers = []
         self.frame_count = 0
 
@@ -164,7 +165,11 @@ class Sort(object):
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
         for t in reversed(to_del):
             self.trackers.pop(t)
-        matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks)
+
+        if self.d_max is None:
+            matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks)
+        else:
+            matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks, self.d_max)
 
         # update matched combined_state with assigned detections
         for t, trk in enumerate(self.trackers):
