@@ -11,6 +11,7 @@ def main():
     env = gym.make("menge_gym:MengeGym-v0")
     env.configure(config.BaseEnvConfig)
     env.setup_ros_connection()
+    env.reset()
     num_iterations = 200
     action_sequence = 20 * [np.array([env.action_space.nvec[0] - 1, np.median(range(env.action_space.nvec[1]))],
                                      dtype=np.int32)] + [np.array([0, env.action_space.nvec[1] - 1])] \

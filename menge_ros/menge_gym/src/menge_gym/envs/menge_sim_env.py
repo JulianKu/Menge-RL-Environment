@@ -83,6 +83,8 @@ class MengeGym(gym.Env):
         self._action = None  # type: Union[None, np.ndarray]
 
         # Schedule variables
+        self.phase = None
+        self.case_capacity = None
         self.case_size = None
         self.case_counter = None
 
@@ -220,6 +222,7 @@ class MengeGym(gym.Env):
             self.config.num_speeds, self.config.num_angles, -1)
         self.action_space = spaces.MultiDiscrete([self.config.num_speeds, self.config.num_angles])
 
+        self.case_capacity = {'train': np.iinfo(np.uint32).max - 2000, 'val': 1000, 'test': 1000}
         self.case_size = {'train': config.env.train_size, 'val': config.env.val_size,
                           'test': config.env.test_size}
         self.case_counter = {'train': 0, 'test': 0, 'val': 0}
@@ -298,18 +301,6 @@ class MengeGym(gym.Env):
         #     self.roshandle.start_rosnode('rviz', 'rviz', launch_cli_args={"d": rviz_path})
 
         rp.on_shutdown(self.close)
-
-        rp.loginfo("Start Menge simulator node")
-        # launch_cli_args = {'project': self.config.scenario_xml,
-        #                    'timeout': self.timeout,
-        #                    'timestep': self.config.time_step}
-        # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
-        cli_args = {'p': self.config.scenario_xml,
-                    'd': self.config.time_limit,
-                    't': self.config.time_step}
-        self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
-        rp.sleep(5)
-        # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
 
         # simulation controls
         rp.logdebug("Set up publishers and subscribers")
@@ -538,36 +529,48 @@ class MengeGym(gym.Env):
             info = Nothing()
         return reward, done, info
 
-    def reset(self):
+    def reset(self, phase='test', test_case=None):
         """
         reset the state of the environment to an initial state
 
         :return: initial observation (ob return from step)
         """
+        assert phase in ['train', 'val', 'test']
+        self.phase = phase
+
+        if test_case is not None:
+            self.case_counter[phase] = test_case
         self.global_time = 0
-        rp.loginfo("Env reset - Shutting down simulation process")
-        # self._sim_process.terminate()
-        # self._sim_process.wait()
-        self.roshandle.terminateOne(self._sim_pid)
-        # self._sim_process.shutdown()
+
+        base_seed = {'train': self.case_capacity['val'] + self.case_capacity['test'],
+                     'val': 0, 'test': self.case_capacity['val']}
+
+        if self.case_counter[phase] >= 0:
+            new_seed = base_seed[phase] + self.case_counter[phase]
+            np.random.seed(new_seed)
+            self.seed(new_seed)
+            if phase == 'test':
+                rp.logdebug('current test seed is:{}'.format(new_seed))
+            self.case_counter[phase] = (self.case_counter[phase] + 1) % self.case_size[phase]
+        else:
+            raise NotImplementedError("Case counter < 0 were for debug purposes in original environment")
+
+        if self._sim_pid is not None:
+            rp.loginfo("Env reset - Shutting down simulation process")
+            self.roshandle.terminateOne(self._sim_pid)
 
         rp.loginfo("Env reset - Starting new simulation process")
-        # launch_cli_args = {'project': self.config.scenario_xml,
-        #                    'timeout': self.timeout,
-        #                    'timestep': self.config.time_step}
-        # self._sim_process = start_roslaunch_file('menge_vis', 'menge.launch', launch_cli_args)
         cli_args = {'p': self.config.scenario_xml,
                     'd': self.config.time_limit,
                     't': self.config.time_step}
         self._sim_pid = self.roshandle.start_rosnode('menge_sim', 'menge_sim', cli_args)
         rp.sleep(5)
-        # self._sim_process = launch('menge_sim', 'menge_sim', cli_args)
 
         # Sample new goal
         self.sample_goal(exclude_initial=True)
 
         # perform idle action and return observation
-        return self.step(np.array([0, np.median(range(self.action_space.nvec[1]))], dtype=np.int32))[0]
+        return self.step(np.array([0, 0], dtype=np.int32))[0]
 
     def render(self, mode='human', close=False):
         """
