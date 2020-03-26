@@ -9,8 +9,6 @@ project(menge_gym)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
-#  roslaunch
-#  pylaunch
   menge_srv
   menge_scene_creation
   std_msgs
@@ -112,7 +110,7 @@ catkin_python_setup()
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES menge_gym
- CATKIN_DEPENDS geometry_msgs rospy std_msgs visualization_msgs message_runtime # rosnode, pylaunch
+ CATKIN_DEPENDS geometry_msgs rospy std_msgs visualization_msgs message_runtime
 #  DEPENDS system_lib
 )
 

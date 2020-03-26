@@ -52,10 +52,7 @@
   <build_export_depend>message_generation</build_export_depend>
   <build_depend>message_generation</build_depend>
   <build_depend>genmsg</build_depend>
-<!--  <depend>pylaunch</depend>-->
-<!--  <depend>rosnode</depend>-->
   <depend>rospy</depend>
-<!--  <depend>roslaunch</depend>-->
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>visualization_msgs</depend>
