@@ -5,7 +5,7 @@ from catkin_pkg.python_setup import generate_distutils_setup
 
 setup_args = generate_distutils_setup(
     version='0.1.0',
-    name='menge_scene_creation',
+    name='menge_card_loader',
     packages=['MengeMapParser', 'MengeMapParser.ParserUtils', 'MengeMapParser.MengeUtils'],
     package_dir={'': 'src'},
     author='Julian Kunze',
