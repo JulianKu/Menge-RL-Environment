@@ -696,11 +696,11 @@ namespace Menge {
 					double dot_product=(robot_orient._x * dx) + (robot_orient._y * dy);
 					
 					double difference = acos(dot_product/(len_robot*len_robot_agent));
-					if(difference > 6.283){ 
-						difference = difference - 6.283;
+					if(difference > 2*M_PI){
+						difference = difference - 2*M_PI;
 					}
-					else if(difference < -6.283){
-						difference = difference + 6.283;
+					else if(difference < -2*M_PI){
+						difference = difference + 2*M_PI;
 					}
 					if(distance < robot_range_max and difference > robot_start_fov and difference < robot_end_fov){
 						crowd.poses.push_back(pose);
