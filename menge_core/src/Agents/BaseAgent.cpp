@@ -3,7 +3,7 @@
 License
 
 Menge
-Copyright © and trademark ™ 2012-14 University of North Carolina at Chapel Hill. 
+Copyright ï¿½ and trademark ï¿½ 2012-14 University of North Carolina at Chapel Hill. 
 All rights reserved.
 
 Permission to use, copy, modify, and distribute this software and its documentation 
@@ -136,6 +136,8 @@ namespace Menge {
             // Now limit angular velocity.
             const float MAX_ANGLE_CHANGE = timeStep * _maxAngVel;
             float maxCt = cos(MAX_ANGLE_CHANGE);
+            // inner product of normalized vectors == cosine between vectors
+            // ct = cos(angle between newOrient and _orient)
             float ct = newOrient * _orient;
             if (ct < maxCt) {
                 // changing direction at a rate greater than _maxAngVel
