@@ -218,23 +218,23 @@ int main(int argc, char* argv[]) {
 
 	std::string exePath( argv[0] );
 	std::string absExePath;
-	os::path::absPath( exePath, absExePath );
-
+//	os::path::absPath( exePath, absExePath );
+    std::string intermediate_dir;
 	std::string tail;
-	os::path::split( absExePath, ROOT, tail );
+	os::path::split( exePath, intermediate_dir, tail );
+    os::path::split( intermediate_dir, ROOT, tail );
 	PluginEngine plugins( &simDB );
 #ifdef _WIN32 
 	#ifdef NDEBUG
-	std::string pluginPath = os::path::join( 2, ROOT.c_str(), "plugins" );
+	std::string pluginPath = ROOT;
 	#else	// NDEBUG
-	std::string pluginPath = os::path::join( 3, ROOT.c_str(), "plugins", "debug" );
+	std::string pluginPath = os::path::join( 2, ROOT, "debug" );
 	#endif	// NDEBUG
 #else	// _WIN32
-	std::string pluginPath = os::path::join( 2, ROOT.c_str(), "plugins" );
+	std::string pluginPath = ROOT;
 #endif	// _WIN32
 	logger.line();
 	logger << Logger::INFO_MSG << "Plugin path: " << pluginPath;
-	pluginPath = "~/catkin_simulator/devel/lib";
 	plugins.loadPlugins( pluginPath );
 	if ( simDB.modelCount() == 0 ) {
 		logger << Logger::INFO_MSG << "There were no pedestrian models in the plugins folder\n";
