@@ -308,7 +308,7 @@ namespace Formations {
      *	@returns	The FormationPtr containing the data.
      *	@throws		A ResourceException if the data is unable to be instantiated.
 	 */
-	FormationPtr loadFormation( const std::string & fileName ) throw ( ResourceException );
+	FormationPtr loadFormation( const std::string & fileName );
 };
 
 #endif

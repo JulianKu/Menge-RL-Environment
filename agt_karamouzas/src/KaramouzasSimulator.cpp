@@ -58,7 +58,7 @@ namespace Karamouzas {
 
 	////////////////////////////////////////////////////////////////
 
-	bool Simulator::setExpParam( const std::string & paramName, const std::string & value ) throw( Agents::XMLParamException ) {
+	bool Simulator::setExpParam( const std::string & paramName, const std::string & value ) {
 		try {
 			if ( paramName == "orient_weight" ) {
 				ORIENT_WEIGHT = toFloat( value );
@@ -86,7 +86,9 @@ namespace Karamouzas {
 			}
 		} catch ( UtilException ) {
 			throw Agents::XMLParamException( std::string( "Karamouzas parameter \"") + paramName + std::string("\" value couldn't be converted to the correct type.  Found the value: " ) + value );
-		}
+		} catch (...) {
+            throw Agents::XMLParamException();
+        }
 		return true;
 	}
 }	//namespace Karamouzas 

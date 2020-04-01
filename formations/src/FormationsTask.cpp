@@ -51,8 +51,14 @@ namespace Formations {
 
 	/////////////////////////////////////////////////////////////////////
 
-	void FormationsTask::doWork( const BFSM::FSM * fsm ) throw( BFSM::TaskException ) {
-		_formation->mapAgentsToFormation(fsm);
+	void FormationsTask::doWork( const BFSM::FSM * fsm ){
+	    try {
+            _formation->mapAgentsToFormation(fsm);
+        } catch ( BFSM::TaskFatalException ) {
+            throw;
+        } catch (...) {
+            throw BFSM::TaskException();
+        }
 	}
 	/////////////////////////////////////////////////////////////////////
 

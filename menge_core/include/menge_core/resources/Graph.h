@@ -252,7 +252,7 @@ namespace Menge {
 	 *	@returns	        The GraphPtr containing the data.
 	 *	@throws		        A  ResourceException if the data is unable to be instantiated.
 	 */
-	GraphPtr loadGraph( const std::string & fileName ) throw ( ResourceException );
+	GraphPtr loadGraph( const std::string & fileName );
 }	// namespace Menge
 
 #endif	// __GRAPH_H__

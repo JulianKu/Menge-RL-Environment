@@ -257,6 +257,6 @@ typedef ResourcePtr< HeightField > HeightFieldPtr;
  *	@returns	The HeightFieldPtr containing the data.
  *	@throws		A ResourceException if the data is unable to be instantiated.
  */
-HeightFieldPtr loadHeightField( const std::string & fileName ) throw ( ResourceException );
+HeightFieldPtr loadHeightField( const std::string & fileName );
 }	// namespace Terrain
 #endif

@@ -175,7 +175,7 @@ namespace Menge {
 			 *	@param			value			A string containing the value for the parameter.
 			 *	@returns		True if the parameter was successfully set, false otherwise.
 			 */
-			virtual bool setExpParam( const std::string & paramName, const std::string & value ) throw( XMLParamException );
+			virtual bool setExpParam( const std::string & paramName, const std::string & value );
 
 		protected:
 
@@ -280,18 +280,24 @@ namespace Menge {
 		////////////////////////////////////////////////////////////////
 
 		template < class Agent >
-		bool SimulatorBase<Agent>::setExpParam( const std::string & paramName, const std::string & value ) throw( XMLParamException ) {
-			
-			if ( paramName == "time_step" ) {
-				try {
-					LOGICAL_TIME_STEP = toFloat( value );
-				} catch ( UtilException ) {
-					throw XMLParamException( std::string( "Common parameters \"time_step\" value couldn't be converted to a float.  Found the value: " ) + value );
-				}
-			} else {
-				return false;
+		bool SimulatorBase<Agent>::setExpParam( const std::string & paramName, const std::string & value ) {
+			try {
+                if (paramName == "time_step") {
+                    try {
+                        LOGICAL_TIME_STEP = toFloat(value);
+                    } catch (UtilException) {
+                        throw XMLParamException(std::string(
+                                "Common parameters \"time_step\" value couldn't be converted to a float.  Found the value: ") +
+                                                value);
+                    }
+                } else {
+                    return false;
+                }
+            } catch (XMLParamException) {
+			    throw;
+            } catch (...) {
+			    throw XMLParamException();
 			}
-
 			return true;
 		}
 

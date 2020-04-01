@@ -359,18 +359,24 @@ namespace Menge {
 
 	//////////////////////////////////////////////////////////////////////////////////////
 
-	GraphPtr loadGraph( const std::string & fileName ) throw ( ResourceException ) {
-		Resource * rsrc = ResourceManager::getResource( fileName, &Graph::load, Graph::LABEL );
-		if ( rsrc == 0x0 ) {
-			logger << Logger::ERR_MSG << "No resource available\n";
-			throw ResourceException();
-		}
-		Graph * graph = dynamic_cast< Graph * >( rsrc );
-		if ( graph == 0x0 ) {
-			logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a Graph\n";
-			throw ResourceException();
-		}
-		return GraphPtr( graph );
+	GraphPtr loadGraph( const std::string & fileName ) {
+	    try {
+            Resource *rsrc = ResourceManager::getResource(fileName, &Graph::load, Graph::LABEL);
+            if (rsrc == 0x0) {
+                logger << Logger::ERR_MSG << "No resource available\n";
+                throw ResourceException();
+            }
+            Graph *graph = dynamic_cast< Graph * >( rsrc );
+            if (graph == 0x0) {
+                logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a Graph\n";
+                throw ResourceException();
+            }
+            return GraphPtr(graph);
+        } catch ( ResourceException ) {
+	        throw;
+	    } catch (...) {
+	        throw ResourceException();
+	    }
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////

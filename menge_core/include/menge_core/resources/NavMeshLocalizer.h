@@ -430,7 +430,7 @@ namespace Menge {
 	 *	@returns	The NavMeshLocalizerPtr containing the data.
 	 *	@throws		A ResourceException if the data is unable to be instantiated.
 	 */
-	NavMeshLocalizerPtr loadNavMeshLocalizer( const std::string & fileName, bool usePlanner ) throw ( ResourceException );
+	NavMeshLocalizerPtr loadNavMeshLocalizer( const std::string & fileName, bool usePlanner );
 
 }	// namespace Menge
 

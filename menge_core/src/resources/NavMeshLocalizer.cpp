@@ -289,25 +289,33 @@ namespace Menge {
 
 	/////////////////////////////////////////////////////////////////////
 
-	NavMeshLocalizerPtr loadNavMeshLocalizer( const std::string & fileName, bool usePlanner ) throw ( ResourceException ) {
-		Resource * rsrc = ResourceManager::getResource( fileName, &NavMeshLocalizer::load, NavMeshLocalizer::LABEL );
-		if ( rsrc == 0x0 ) {
-			logger << Logger::ERR_MSG << "No resource available.";
-			throw ResourceException();
-		}
-		NavMeshLocalizer * nml = dynamic_cast< NavMeshLocalizer * >( rsrc );
-		if ( nml == 0x0 ) {
-			logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a navigation mesh localizer.";
-			throw ResourceException();
-		}
+	NavMeshLocalizerPtr loadNavMeshLocalizer( const std::string & fileName, bool usePlanner ) {
+	    try {
+            Resource *rsrc = ResourceManager::getResource(fileName, &NavMeshLocalizer::load, NavMeshLocalizer::LABEL);
+            if (rsrc == 0x0) {
+                logger << Logger::ERR_MSG << "No resource available.";
+                throw ResourceException();
+            }
+            NavMeshLocalizer *nml = dynamic_cast< NavMeshLocalizer * >( rsrc );
+            if (nml == 0x0) {
+                logger << Logger::ERR_MSG << "Resource with name " << fileName
+                       << " is not a navigation mesh localizer.";
+                throw ResourceException();
+            }
 
-		if ( usePlanner ) {
-			if ( nml->getPlanner() == 0x0 ) {
-				PathPlanner * planner = new PathPlanner( nml->getNavMesh() );
-				nml->setPlanner( planner );
-			}
-		}
-		
-		return NavMeshLocalizerPtr( nml );
+            if (usePlanner) {
+                if (nml->getPlanner() == 0x0) {
+                    PathPlanner *planner = new PathPlanner(nml->getNavMesh());
+                    nml->setPlanner(planner);
+                }
+            }
+
+            return NavMeshLocalizerPtr( nml );
+
+        } catch ( ResourceException ) {
+            throw;
+        } catch (...) {
+            throw ResourceException();
+        }
 	}
 }	// namespace Menge

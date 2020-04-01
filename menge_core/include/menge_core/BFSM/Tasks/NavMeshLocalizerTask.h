@@ -85,7 +85,7 @@ namespace Menge {
 			 *	@throws		A TaskFatalException if there is a fatal error that
 			 *				should arrest execution of the simulation.
 			 */
-			virtual void doWork( const FSM * fsm ) throw( TaskException );
+			virtual void doWork( const FSM * fsm );
 
 			/*!
 			 *	@brief		String representation of the task

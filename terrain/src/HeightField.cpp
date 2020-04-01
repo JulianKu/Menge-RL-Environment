@@ -413,18 +413,26 @@ namespace Terrain {
 
 	//////////////////////////////////////////////////////////////////////////////////////
 
-	HeightFieldPtr loadHeightField( const std::string & fileName ) throw ( ResourceException ) {
-		Resource * rsrc = ResourceManager::getResource( fileName, &HeightField::load, HeightField::LABEL );
-		if ( rsrc == 0x0 ) {
-			logger << Logger::ERR_MSG << "No height field resource available.";
-			throw ResourceException();
-		}
-		HeightField * hf = dynamic_cast< HeightField * >( rsrc );
-		if ( hf == 0x0 ) {
-			logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a height field.";
-			throw ResourceException();
-		}
-		return HeightFieldPtr( hf );
+	HeightFieldPtr loadHeightField( const std::string & fileName ) {
+	    try {
+            Resource *rsrc = ResourceManager::getResource(fileName, &HeightField::load, HeightField::LABEL);
+            if (rsrc == 0x0) {
+                logger << Logger::ERR_MSG << "No height field resource available.";
+                throw ResourceException();
+            }
+            HeightField *hf = dynamic_cast< HeightField * >( rsrc );
+            if (hf == 0x0) {
+                logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a height field.";
+                throw ResourceException();
+            }
+
+            return HeightFieldPtr( hf );
+
+        } catch ( ResourceException ) {
+            throw;
+        } catch (...) {
+            throw ResourceException();
+        }
 	}
 
 }	// namespace Terrain

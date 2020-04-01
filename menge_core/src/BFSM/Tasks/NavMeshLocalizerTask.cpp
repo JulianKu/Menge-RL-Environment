@@ -56,27 +56,33 @@ namespace Menge {
 
 		/////////////////////////////////////////////////////////////////////
 
-		void NavMeshLocalizerTask::doWork( const FSM * fsm ) throw( TaskException ) {
-			const Agents::SimulatorInterface * sim = fsm->getSimulator();
-			int agtCount = (int)sim->getNumAgents();
-			
-			size_t exceptionCount = 0;
-			#pragma omp parallel for reduction(+:exceptionCount)
-			for ( int a = 0; a < agtCount; ++a ) {
-				try {
-					const Agents::BaseAgent * agt = sim->getAgent( a );
-					_localizer->updateLocation( agt );
-				} catch ( Menge::MengeException & e  ){
-					logger << Logger::ERR_MSG << e.what() << "\n";
-					++exceptionCount;
-				} catch ( std::exception & e ) {
-					logger << Logger::ERR_MSG << "Unanticipated system exception: " << e.what() << ".";
-					++exceptionCount;
-				}
-			}
-			if ( exceptionCount > 0 ) {
-				throw TaskFatalException();
-			}
+		void NavMeshLocalizerTask::doWork( const FSM * fsm ) {
+		    try {
+                const Agents::SimulatorInterface *sim = fsm->getSimulator();
+                int agtCount = (int) sim->getNumAgents();
+
+                size_t exceptionCount = 0;
+#pragma omp parallel for reduction(+:exceptionCount)
+                for (int a = 0; a < agtCount; ++a) {
+                    try {
+                        const Agents::BaseAgent *agt = sim->getAgent(a);
+                        _localizer->updateLocation(agt);
+                    } catch (Menge::MengeException &e) {
+                        logger << Logger::ERR_MSG << e.what() << "\n";
+                        ++exceptionCount;
+                    } catch (std::exception &e) {
+                        logger << Logger::ERR_MSG << "Unanticipated system exception: " << e.what() << ".";
+                        ++exceptionCount;
+                    }
+                }
+                if (exceptionCount > 0) {
+                    throw TaskFatalException();
+                }
+            } catch ( TaskFatalException ) {
+		        throw;
+		    } catch (...) {
+		        throw TaskException();
+		    }
 		}
 		/////////////////////////////////////////////////////////////////////
 

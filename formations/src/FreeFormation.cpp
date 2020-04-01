@@ -414,18 +414,25 @@ namespace Formations {
 
 	/////////////////////////////////////////////////////////////////////
 
-	FormationPtr loadFormation( const std::string & fileName ) throw ( ResourceException ) {
-	    Resource * rsrc = ResourceManager::getResource( fileName, &FreeFormation::load, FreeFormation::LABEL );
-		if ( rsrc == 0x0 ) {
-			logger << Logger::ERR_MSG << "No resource available.";
-			throw ResourceException();
-		}
-		FreeFormation * form = dynamic_cast< FreeFormation * >( rsrc );
-		if ( form == 0x0 ) {
-			logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a formation.";
-			throw ResourceException();
-		}
-	
-		return FormationPtr( form );
+	FormationPtr loadFormation( const std::string & fileName ) {
+	    try {
+            Resource *rsrc = ResourceManager::getResource(fileName, &FreeFormation::load, FreeFormation::LABEL);
+            if (rsrc == 0x0) {
+                logger << Logger::ERR_MSG << "No resource available.";
+                throw ResourceException();
+            }
+            FreeFormation *form = dynamic_cast< FreeFormation * >( rsrc );
+            if (form == 0x0) {
+                logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a formation.";
+                throw ResourceException();
+            }
+
+            return FormationPtr( form );
+
+        } catch ( ResourceException ) {
+            throw;
+        } catch (...) {
+            throw ResourceException();
+        }
 	}
 }	// namespace Formations

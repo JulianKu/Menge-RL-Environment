@@ -54,7 +54,7 @@ namespace Helbing {
 
 	////////////////////////////////////////////////////////////////
 
-	bool Simulator::setExpParam( const std::string & paramName, const std::string & value ) throw( Agents::XMLParamException ) {
+	bool Simulator::setExpParam( const std::string & paramName, const std::string & value ) {
 		try {
 			if ( paramName == "agent_scale" ) {
 				AGENT_SCALE = toFloat( value );
@@ -74,6 +74,8 @@ namespace Helbing {
 			}
 		} catch ( UtilException ) {
 			throw Agents::XMLParamException( std::string( "Helbing parameter \"") + paramName + std::string("\" value couldn't be converted to the correct type.  Found the value: " ) + value );
+		} catch (...) {
+            throw Agents::XMLParamException();
 		}
 		return true;
 	}

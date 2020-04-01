@@ -45,38 +45,56 @@ namespace Menge {
 	//                     Implementation of Utilities
 	////////////////////////////////////////////////////////////////////////////
 
-	float toFloat( const std::string & value ) throw( UtilException ) {
-		float result;
-		std::stringstream ss( value, std::ios_base::in );
-		ss >> result;
-		if ( ss.fail() ) {
-			throw UtilException();
-		}
-		return result;
+	float toFloat( const std::string & value ) {
+	    try {
+            float result;
+            std::stringstream ss(value, std::ios_base::in);
+            ss >> result;
+            if (ss.fail()) {
+                throw UtilException();
+            }
+            return result;
+        } catch ( UtilException) {
+	        throw;
+	    } catch (...) {
+            throw UtilException();
+        }
 	}
 
 	////////////////////////////////////////////////////////////////////////////
 
-	int toInt( const std::string & value ) throw( UtilException ) {
-		int result;
-		std::stringstream ss( value, std::ios_base::in );
-		ss >> result;
-		if ( ss.fail() ) {
-			throw UtilException();
-		}
-		return result;
+	int toInt( const std::string & value ) {
+        try {
+            int result;
+            std::stringstream ss(value, std::ios_base::in);
+            ss >> result;
+            if (ss.fail()) {
+                throw UtilException();
+            }
+            return result;
+        } catch ( UtilException) {
+            throw;
+        } catch (...) {
+            throw UtilException();
+        }
 	}
 
 	////////////////////////////////////////////////////////////////////////////
 
-	size_t toSize_t( const std::string & value ) throw( UtilException ) {
-		size_t result;
-		std::stringstream ss( value, std::ios_base::in );
-		ss >> result;
-		if ( ss.fail() || result < 0 ) {
-			throw UtilException();
-		}
-		return result;
+	size_t toSize_t( const std::string & value ) {
+        try {
+            size_t result;
+            std::stringstream ss( value, std::ios_base::in );
+            ss >> result;
+            if ( ss.fail() || result < 0 ) {
+                throw UtilException();
+            }
+            return result;
+        } catch ( UtilException) {
+            throw;
+        } catch (...) {
+            throw UtilException();
+        }
 	}
 
 	////////////////////////////////////////////////////////////////////////////

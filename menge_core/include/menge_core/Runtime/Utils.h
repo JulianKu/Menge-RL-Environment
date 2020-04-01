@@ -104,7 +104,7 @@ namespace Menge {
 	 *	@throws		A UtilException if the string is improperly formatted.
 	 *	@returns		The float representation of the value held in the string.
 	 */
-	MENGE_API float toFloat( const std::string & value ) throw( UtilException );
+	MENGE_API float toFloat( const std::string & value );
 
 
 	/*!
@@ -114,7 +114,7 @@ namespace Menge {
 	 *	@throws		A UtilException if the string is improperly formatted.
 	 *	@returns	The int representation of the value held in the string.
 	 */
-	MENGE_API int toInt( const std::string & value ) throw( UtilException );
+	MENGE_API int toInt( const std::string & value );
 
 
 
@@ -125,7 +125,7 @@ namespace Menge {
 	 *	@throws		A UtilException if the string is improperly formatted.
 	 *	@returns		The size_t representation of the value held in the string.
 	 */
-	MENGE_API size_t toSize_t( const std::string & value ) throw( UtilException );
+	MENGE_API size_t toSize_t( const std::string & value );
 }	// namespace Menge
 
 #endif	 // __UTILS_H__

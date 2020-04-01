@@ -50,7 +50,7 @@ namespace Dummy {
 
 	////////////////////////////////////////////////////////////////
 
-	bool Simulator::setExpParam( const std::string & paramName, const std::string & value ) throw( Agents::XMLParamException ) {
+	bool Simulator::setExpParam( const std::string & paramName, const std::string & value ) {
 		try {
 			if ( paramName == "stddev" ) {
 				float stddev = toFloat( value );
@@ -62,6 +62,8 @@ namespace Dummy {
 			}
 		} catch ( UtilException ) {
 			throw Agents::XMLParamException( std::string( "Dummy parameter \"") + paramName + std::string("\" value couldn't be converted to the correct type.  Found the value: " ) + value );
+		} catch (...) {
+            throw Agents::XMLParamException();
 		}
 		return true;
 	}

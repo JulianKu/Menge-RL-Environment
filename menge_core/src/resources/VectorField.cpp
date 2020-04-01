@@ -251,17 +251,23 @@ namespace Menge {
 
 	/////////////////////////////////////////////////////////////////////
 
-	VectorFieldPtr loadVectorField( const std::string & fileName ) throw ( ResourceException ) {
-		Resource * rsrc = ResourceManager::getResource( fileName, &VectorField::load, VectorField::LABEL );
-		if ( rsrc == 0x0 ) {
-			logger << Logger::ERR_MSG << "No resource available\n";
-			throw ResourceException();
-		}
-		VectorField * vf = dynamic_cast< VectorField * >( rsrc );
-		if ( vf == 0x0 ) {
-			logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a VectorField\n";
-			throw ResourceException();
-		}
-		return VectorFieldPtr( vf );
+	VectorFieldPtr loadVectorField( const std::string & fileName ) {
+	    try {
+            Resource *rsrc = ResourceManager::getResource(fileName, &VectorField::load, VectorField::LABEL);
+            if (rsrc == 0x0) {
+                logger << Logger::ERR_MSG << "No resource available\n";
+                throw ResourceException();
+            }
+            VectorField *vf = dynamic_cast< VectorField * >( rsrc );
+            if (vf == 0x0) {
+                logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a VectorField\n";
+                throw ResourceException();
+            }
+            return VectorFieldPtr(vf);
+        } catch ( ResourceException ) {
+            throw;
+        } catch (...) {
+            throw ResourceException();
+        }
 	}
 }	// namespace Menge

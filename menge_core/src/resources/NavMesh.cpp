@@ -531,18 +531,25 @@ namespace Menge {
 
 	/////////////////////////////////////////////////////////////////////
 
-	NavMeshPtr loadNavMesh( const std::string & fileName ) throw ( ResourceException ) {
-		Resource * rsrc = ResourceManager::getResource( fileName, &NavMesh::load, NavMesh::LABEL );
-		if ( rsrc == 0x0 ) {
-			logger << Logger::ERR_MSG << "No resource available.";
-			throw ResourceException();
-		}
-		NavMesh * nm = dynamic_cast< NavMesh * >( rsrc );
-		if ( nm == 0x0 ) {
-			logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a navigation mesh.";
-			throw ResourceException();
-		}
-		
-		return NavMeshPtr( nm );
+	NavMeshPtr loadNavMesh( const std::string & fileName ) {
+	    try {
+            Resource *rsrc = ResourceManager::getResource(fileName, &NavMesh::load, NavMesh::LABEL);
+            if (rsrc == 0x0) {
+                logger << Logger::ERR_MSG << "No resource available.";
+                throw ResourceException();
+            }
+            NavMesh *nm = dynamic_cast< NavMesh * >( rsrc );
+            if (nm == 0x0) {
+                logger << Logger::ERR_MSG << "Resource with name " << fileName << " is not a navigation mesh.";
+                throw ResourceException();
+            }
+
+            return NavMeshPtr( nm );
+
+        } catch ( ResourceException ) {
+            throw;
+        } catch (...) {
+            throw ResourceException();
+        }
 	}
 }	// namespace Menge

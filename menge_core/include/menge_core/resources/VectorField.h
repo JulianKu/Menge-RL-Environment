@@ -261,7 +261,7 @@ namespace Menge {
 	 *	@returns	The VectorFieldPtr containing the data.
 	 *	@throws		A ResourceException if the data is unable to be instantiated.
 	 */
-	VectorFieldPtr loadVectorField( const std::string & fileName ) throw ( ResourceException );
+	VectorFieldPtr loadVectorField( const std::string & fileName );
 }	// namespace Menge
 
 #endif // __VECTOR_FIELD_H__

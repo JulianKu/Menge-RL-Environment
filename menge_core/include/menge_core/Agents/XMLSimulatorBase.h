@@ -175,7 +175,7 @@ namespace Menge {
 			 *	@returns	True if the parameter was set successfully, false otherwise.
 			 *	@throws		An XMLParamException if there was a problem with the parameter name/value 
 			 */
-			virtual bool setExpParam( const std::string & paramName, const std::string & value ) throw( XMLParamException ) = 0;
+			virtual bool setExpParam( const std::string & paramName, const std::string & value ) = 0;
 
 			/*!
 			 *	@brief		Add an agent with specified position to the simulator whose properties

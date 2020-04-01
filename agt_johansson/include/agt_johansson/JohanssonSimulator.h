@@ -91,7 +91,7 @@ namespace Johansson {
 		 *	@param			value			A string containing the value for the parameter.
 		 *	@returns		whether or not parameters were successfully set
 		 */
-		virtual bool setExpParam( const std::string & paramName, const std::string & value ) throw( Agents::XMLParamException );
+		virtual bool setExpParam( const std::string & paramName, const std::string & value );
 
 	protected:
 		friend class Agent;

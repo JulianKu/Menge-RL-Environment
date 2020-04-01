@@ -438,7 +438,7 @@ namespace Menge {
 	 *	@returns			The NavMeshPtr containing the data.
 	 *	@throws				A ResourceException if the data is unable to be instantiated.
 	 */
-	NavMeshPtr loadNavMesh( const std::string & fileName ) throw ( ResourceException );
+	NavMeshPtr loadNavMesh( const std::string & fileName );
 
 }	// namespace Menge
 
