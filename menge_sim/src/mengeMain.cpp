@@ -83,9 +83,6 @@ float SIM_DURATION = 800.f;
 // Controls whether the simulation is verbose or not
 bool VERBOSE = false;
 
-// The location of the executable - for basic executable resources
-std::string ROOT;
-
 SimulatorDB simDB;
 
 
@@ -217,21 +214,20 @@ int main(int argc, char* argv[]) {
 	ROS_INFO_STREAM(" argument count " << argc << "," << argv[0] << "," << argv[1] << "," << argv[2]);
 
 	std::string exePath( argv[0] );
-	std::string absExePath;
-//	os::path::absPath( exePath, absExePath );
     std::string intermediate_dir;
 	std::string tail;
 	os::path::split( exePath, intermediate_dir, tail );
-    os::path::split( intermediate_dir, ROOT, tail );
+    std::string root_plugins;
+    os::path::split( intermediate_dir, root_plugins, tail );
 	PluginEngine plugins( &simDB );
 #ifdef _WIN32 
 	#ifdef NDEBUG
-	std::string pluginPath = ROOT;
+	std::string pluginPath = root_plugins.c_str();
 	#else	// NDEBUG
-	std::string pluginPath = os::path::join( 2, ROOT, "debug" );
+	std::string pluginPath = os::path::join( 2, root_plugins.c_str(), "debug" );
 	#endif	// NDEBUG
 #else	// _WIN32
-	std::string pluginPath = ROOT;
+	std::string pluginPath = root_plugins.c_str();
 #endif	// _WIN32
 	logger.line();
 	logger << Logger::INFO_MSG << "Plugin path: " << pluginPath;
@@ -241,7 +237,12 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	SceneGraph::TextWriter::setDefaultFont( os::path::join( 2, ROOT.c_str(), "arial.ttf" ) );
+    std::string absExePath;
+    os::path::absPath( exePath, absExePath );
+    std::string root_fonts;
+    os::path::split( absExePath, root_fonts, tail );
+
+	SceneGraph::TextWriter::setDefaultFont( os::path::join( 2, root_fonts.c_str(), "arial.ttf" ) );
 	ProjectSpec projSpec;
 
 	if (! projSpec.parseCommandParameters( argc, argv, &simDB ) ) {
