@@ -119,8 +119,7 @@ bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunS
             _srv_run_received = false;
             _srv_start_time = _viewTime;
             _srv_num_steps = 0;
-            std_msgs::Bool done_msg;
-            done_msg.data = true;
+            std_msgs::Float32 time_msg;
 
 			while ( ros::ok() ) {
                 queue.callAvailable(ros::WallDuration());
@@ -132,7 +131,6 @@ bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunS
                     } else {
                         _pause = true;
                         _srv_run_received = false;
-                        _pub_done.publish(done_msg);
                     }
                 }
 
@@ -165,6 +163,8 @@ bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunS
                     try {
                         _scene->updateScene(_viewTime);
                         _fpsTimer.lap();
+                        time_msg.data = _viewTime;
+                        _pub_time.publish(time_msg);
                     } catch (SceneGraph::SystemStopException) {
                         break;
                     }

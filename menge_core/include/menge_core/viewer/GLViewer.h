@@ -3,7 +3,7 @@
 License
 
 Menge
-Copyright © and trademark ™ 2012-14 University of North Carolina at Chapel Hill. 
+Copyright ï¿½ and trademark ï¿½ 2012-14 University of North Carolina at Chapel Hill. 
 All rights reserved.
 
 Permission to use, copy, modify, and distribute this software and its documentation 
@@ -63,6 +63,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <ros/spinner.h>
 #include <ros/callback_queue.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Float32.h>
 #include <menge_srv/RunSim.h>
 
 namespace Menge {
@@ -314,7 +315,7 @@ namespace Menge {
 				_sub_step = _nh->subscribe("step", 50, &Menge::Vis::GLViewer::setStepFromMsg, this);
 				_sub_run = _nh->subscribe("run", 50, &Menge::Vis::GLViewer::setRunFromMsg, this);
 				_srv_run = _nh->advertiseService("advance_simulation", &Menge::Vis::GLViewer::setStepFromSrv, this);
-				_pub_done = _nh->advertise<std_msgs::Bool>("done", 50);
+				_pub_time = _nh->advertise<std_msgs::Float32>("menge_sim_time", 50);
                 _spinner.reset(new ros::AsyncSpinner(0, &queue));
 			}
 			/*!
@@ -482,7 +483,7 @@ namespace Menge {
             ros::Subscriber _sub_step;
             ros::Subscriber _sub_run;
             ros::ServiceServer _srv_run;
-            ros::Publisher _pub_done;
+            ros::Publisher _pub_time;
             boost::shared_ptr<ros::AsyncSpinner> _spinner;
 			/*!
 			 *	@brief		Initizlies the OpenGL lighting based on the set of lights.

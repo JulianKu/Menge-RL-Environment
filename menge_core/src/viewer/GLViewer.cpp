@@ -217,8 +217,7 @@ namespace Menge {
 			_srv_run_received = false;
             _srv_start_time = _viewTime;
             _srv_num_steps = 0;
-            std_msgs::Bool done_msg;
-            done_msg.data = true;
+            std_msgs::Float32 time_msg;
 
 			while ( _running && ros::ok() ) {
 				SDL_Event e;
@@ -251,7 +250,6 @@ namespace Menge {
                         ROS_DEBUG("Pause after simulation sufficiently advanced");
 				        _pause = true;
 				        _srv_run_received = false;
-                        _pub_done.publish(done_msg);
 				    }
 				}
 
@@ -278,7 +276,9 @@ namespace Menge {
 						startTimer( SCENE_UPDATE );
 						try {
 							redraw = _scene->updateScene( _viewTime );
-						} catch ( SceneGraph::SystemStopException ) {
+                            time_msg.data = _viewTime;
+                            _pub_time.publish(time_msg);
+						} catch (const SceneGraph::SystemStopException&  sse) {
 							// When a system sends an exception that things are over
 							// pause everything
 							std::cout << "System stopped!\n";
