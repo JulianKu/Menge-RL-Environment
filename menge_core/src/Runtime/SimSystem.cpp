@@ -82,7 +82,7 @@ namespace Menge {
 		if ( _isRunning ) {
 			if ( _scbWriter ) _scbWriter->writeFrame( _fsm );	
 			_lastUpdate = _sim->getGlobalTime();
-			if ( _lastUpdate > _maxDuration ) {
+			if ( _lastUpdate >= _maxDuration ) {
 				_isRunning = false;
 			} else {
 				for ( size_t i = 0; i <= _sim->getSubSteps(); ++i ) {
@@ -107,12 +107,8 @@ namespace Menge {
 				}
 			}
 		}
-		if ( !_isRunning ) {
-			// TODO: WHy is this here??
-			throw SceneGraph::SystemStopException();
-			return false;
-		}
-		return true;
+
+		return _isRunning;
 	}
 
 	////////////////////////////////////////////////////////////////////////////
