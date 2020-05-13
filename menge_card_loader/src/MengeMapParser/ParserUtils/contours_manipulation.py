@@ -41,34 +41,35 @@ def remove_inner_contours(contours: List[np.ndarray], trajectory: np.ndarray) \
         else:
             inner_cnt_idx += 1
 
-    # only keep innermost bounding contour
     real_bound = np.array([])
-    if len(bounding_contours) == 1:
-        real_bound = bounding_contours
-    elif len(bounding_contours) > 1:
-        for bound1 in bounding_contours:
-            cnt_bnd1 = contours[bound1]
-            for bound2 in bounding_contours:
-                cnt_bnd2 = contours[bound2]
-                if not np.array_equal(cnt_bnd1, cnt_bnd2):
-                    # get mask that tells which points of bound2 lie within bound1
-                    bn2_in_bnd1 = measure.points_in_poly(cnt_bnd2, cnt_bnd1)
-                    if not np.any(bn2_in_bnd1):
-                        real_bound = [bound1]
-                        # Break the inner loop..
-                        break
-            else:
-                # Continue if the inner loop wasn't broken.
-                continue
-            # Inner loop was broken, break the outer.
-            break
-    # if only one bounding contour, or multiple intersecting bounding contours
-    if not real_bound:
-        # return all inner contours, sorted ascending by the area they enclose
-        contour_area = lambda cnt: np.abs(0.5*np.sum(cnt[:, 1][:-1]*np.diff(cnt[:, 0])
-                                                     - cnt[:, 0][:-1]*np.diff(cnt[:, 1])))
-        order = np.argsort([contour_area(contours[cnt]) for cnt in bounding_contours])
-        real_bound = bounding_contours[order]
+    if bounding_contours:
+        # only keep innermost bounding contour
+        if len(bounding_contours) == 1:
+            real_bound = bounding_contours
+        elif len(bounding_contours) > 1:
+            for bound1 in bounding_contours:
+                cnt_bnd1 = contours[bound1]
+                for bound2 in bounding_contours:
+                    cnt_bnd2 = contours[bound2]
+                    if not np.array_equal(cnt_bnd1, cnt_bnd2):
+                        # get mask that tells which points of bound2 lie within bound1
+                        bn2_in_bnd1 = measure.points_in_poly(cnt_bnd2, cnt_bnd1)
+                        if not np.any(bn2_in_bnd1):
+                            real_bound = [bound1]
+                            # Break the inner loop..
+                            break
+                else:
+                    # Continue if the inner loop wasn't broken.
+                    continue
+                # Inner loop was broken, break the outer.
+                break
+        # if only one bounding contour, or multiple intersecting bounding contours
+        if not real_bound:
+            # return all inner contours, sorted ascending by the area they enclose
+            contour_area = lambda cnt: np.abs(0.5*np.sum(cnt[:, 1][:-1]*np.diff(cnt[:, 0])
+                                                         - cnt[:, 0][:-1]*np.diff(cnt[:, 1])))
+            order = np.argsort([contour_area(contours[cnt]) for cnt in bounding_contours])
+            real_bound = bounding_contours[order]
 
     # make inner_contours (that should be removed) unique
     if len(inner_contours):

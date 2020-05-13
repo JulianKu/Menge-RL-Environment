@@ -198,6 +198,10 @@ class MengeMapParser:
         contours = [np.rint(contour).astype('int32') for contour in contours]
         # remove inner contours
         contours, bounds = remove_inner_contours(contours, trajectory_pixels)
+        if len(bounds) == 0:
+            # make image boundaries to bound
+            max_x, max_y = self.dims
+            bounds = [np.array(((0, 0), (0, max_y), (max_x, max_y), (max_x, 0), (0, 0)))]
         self.contours = approximate_contours(contours, tolerance / self.resolution)
         self.bounds = approximate_contours(bounds, tolerance / self.resolution)
 
@@ -231,10 +235,13 @@ class MengeMapParser:
             contour_image[rr, cc] = 1
 
         # create pixel map of enclosed space
-        bounds_image = np.zeros_like(self.img, dtype='float')
-        smallest_bounding_cnt = self.bounds[0]
-        rr, cc = draw.polygon(smallest_bounding_cnt[:, 0], smallest_bounding_cnt[:, 1])
-        bounds_image[rr, cc] = 1
+        if self.bounds:
+            bounds_image = np.zeros_like(self.img, dtype='float')
+            smallest_bounding_cnt = self.bounds[0]
+            rr, cc = draw.polygon(smallest_bounding_cnt[:, 0], smallest_bounding_cnt[:, 1])
+            bounds_image[rr, cc] = 1
+        else:
+            bounds_image = np.ones_like(self.img, dtype='float')
 
         # introduce clearance to obstacles
         clearance_to_contours = 1  # meter
