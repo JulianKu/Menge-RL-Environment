@@ -137,14 +137,21 @@ class MengeMapParser:
         # empty navmesh
         self.navmesh = None
 
-    def full_process(self, **kwargs):
+        # by Menge simulator supported pedestrian models
+        self.supported_ped_models = ['pedvo', 'orca', 'zanlungo', 'johansson', 'karamouzas', 'helbing']
+
+    def full_process(self, **kwargs) -> str:
         """
         first extract obstacles from image, then write results into Menge compliant xml file
+
+        :return: path to scenario xml
         """
         self.extract_trajectory()
         self.extract_obstacles(**kwargs)
         self.extract_target_areas()
         self.make_xml(**kwargs)
+
+        return self.output['base']
 
     def extract_trajectory(self) -> np.ndarray:
         """
@@ -457,40 +464,50 @@ class MengeMapParser:
         plt.yticks([])
         plt.show()
 
-    def make_xml(self, make_navmesh: Union[bool, str] = True, **kwargs):
+    def make_xml(self, make_view: Union[bool, str] = False, make_navmesh: Union[bool, str] = True, **kwargs):
         """
         compose a Menge compliant scenario out of four xml files (base, scene, behavior, view)
         """
 
         # make sure arguments are of the correct type (e.g when passed via commandline)
         make_navmesh = str2bool(make_navmesh)
+        make_view = str2bool(make_view)
 
         assert self.config, \
             "Unable to parse config file.\n Config file is required for generating Menge compliant xml files"
 
-        self.make_base(**kwargs)
+        self.make_base(make_view, make_navmesh, **kwargs)
         self.make_scene(**kwargs)
         self.make_behavior(make_navmesh, **kwargs)
-        self.make_view()
+        if make_view:
+            self.make_view()
         if make_navmesh:
             self.make_navmesh()
 
-    def make_base(self, pedestrian_model: str = "pedvo", **kwargs):
+    def make_base(self, make_view, make_navmesh, pedestrian_model: str = None, **kwargs):
         """
         make a Menge simulator compliant xml file that specifies a scenario based on the scene, behavior and view file.
         """
-
-        assert pedestrian_model in ['pedvo', 'orca'], "Specified pedestrian model is not supported"
 
         output = self.output
 
         root = ElT.Element("Project")
         for key in output:
-            if key != 'base':
-                # make attribute for every element in the output dict (scene, behavior, view, dumpPath)
+            if key != 'base' and (key not in ['view', 'navmesh']
+                                  or (key == 'view' and make_view)
+                                  or (key == 'navmesh' and make_navmesh)):
+                # make attribute for every element in the output dict (scene, behavior, view, navmesh, dumpPath)
+                # make_navmesh and make_view control if the corresponding attribute is created and therefore
+                # whether it should be added in the base
                 root.set(key, os.path.relpath(output[key], os.path.split(output['base'])[0]))
-        # set pedestrian model for simulation
-        root.set("model", pedestrian_model)
+        supported_ped_models = self.supported_ped_models
+        if pedestrian_model is not None:
+            assert pedestrian_model in supported_ped_models, "Specified pedestrian model is not supported\n " \
+                                                                  "Supported models: {}\n " \
+                                                                  "Given model: {}".format(supported_ped_models,
+                                                                                           pedestrian_model)
+            # set pedestrian model for simulation
+            root.set("model", pedestrian_model)
 
         # prettify xml by indentation
         xml_indentation(root)
