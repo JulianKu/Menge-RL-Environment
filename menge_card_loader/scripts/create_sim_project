@@ -2,13 +2,21 @@
 
 import argparse
 from os import path
+from tqdm import tqdm
+from yaml import safe_dump as yaml_dump
 from MengeMapParser import MengeMapParser
-from MengeMapParser.ParserUtils import parse_unknown_args
+from MengeMapParser.ParserUtils import read_yaml, parse_unknown_args
+
+
+def merge_two_dicts(x: dict, y: dict):
+    z = x.copy()   # start with x's keys and values
+    z.update(y)    # modifies z with y's keys and values & returns None
+    return z
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Take an image (map) and its resolution as input, '
-                                     'extract obstacles and build a Menge-compliant xml out of that map',
+    parser = argparse.ArgumentParser(description='Take one or multiple images (maps) and their resolution as input, '
+                                     'extract obstacles and build a Menge-compliant xml out of each map',
                                      epilog='It is also possible to provide additional arguments:\n'
                                             'Just add more positional arguments or provide keyword arguments '
                                             'in either of the following forms:\n'
@@ -18,26 +26,79 @@ def main():
                                             'The parser will handle it accordingly and pass it to the different '
                                             'functions.',
                                      formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('map_file', help='path to the map image file which shall be used in Menge')
+    parser.add_argument('file', help='either path to the image file of map\n'
+                                     'or path to yaml file that contains info\n'
+                                     'about multiple image files\n'
+                                     'which shall be transformed into\n'
+                                     'a Menge-compliant scenario')
     parser.add_argument('--resolution', '-res', type=float, default=0.05, help='map resolution in [m]')
     parser.add_argument('--config', '-c',
                         help="relative or absolute path of a yaml config file")
     parser.add_argument('--output_file', '-o', help="name/path of output file; if not given,\n"
                                                     "name + dir will be inferred from the map file instead")
     args, unknown = parser.parse_known_args()
+    unknown_args, unknown_kwargs = parse_unknown_args(unknown)
+
+    if args.file.endswith('.yaml'):
+        yaml_dict = read_yaml(args.file)
+        scenarios_list = yaml_dict['images']
+    else:
+        yaml_dict = {}
+        scenarios_list = [{'image': args.file}]
+
+    parent_dir_file = path.dirname(args.file)
 
     if not args.config:
         parent_dir = path.dirname(path.dirname(path.abspath(__file__)))
         args.config = path.join(path.join(parent_dir, "config"), "scene.yaml")
 
-    if args.output_file:
-        img_parser = MengeMapParser(args.map_file, args.resolution, args.config, args.output_file)
+    xml_scenarios = []
+
+    tqdm_wrapper = tqdm(scenarios_list)
+    for scenario in tqdm_wrapper:
+
+        image = scenario.pop('image')
+
+        tqdm_wrapper.set_description('Processing {}'.format(path.split(image)[-1]))
+
+        if not path.isabs(image):
+            image = path.join(parent_dir_file, image)
+
+        if 'resolution' in scenario:
+            resolution = scenario.pop('resolution')
+        elif 'resolution' in yaml_dict:
+            resolution = yaml_dict['resolution']
+        else:
+            resolution = args.resolution
+
+        if 'output_file' in scenario:
+            output_file = scenario.pop('output_file')
+            img_parser = MengeMapParser(image, resolution, args.config, output_file)
+        elif args.output_file:
+            if path.isdir(args.output_file) or len(scenarios_list) == 1:
+                img_parser = MengeMapParser(image, resolution, args.config, args.output_file)
+            else:
+                print("Single output file specified for multiple scenarios.\nFalling back to default output")
+                img_parser = MengeMapParser(image, resolution, args.config)
+        else:
+            img_parser = MengeMapParser(image, resolution, args.config)
+
+        # scenario now only contains keys that are still unprocessed
+        # those are passed onto the full_process() together with other unprocessed arguments
+        kwargs = merge_two_dicts(unknown_kwargs, scenario)
+        xml_scenario = img_parser.full_process(*unknown_args, **kwargs)
+
+        xml_scenarios.append(xml_scenario)
+
+    scenarios_file = path.join(parent_dir_file, 'scenarios.yaml')
+    if path.isfile(scenarios_file):
+        scenarios_yaml = read_yaml(scenarios_file)
+        scenarios_yaml['scenarios'].extend(xml_scenarios)
     else:
-        img_parser = MengeMapParser(args.map_file, args.resolution, args.config)
+        scenarios_yaml = {'scenarios': xml_scenarios}
 
-    unknown_args, unknown_kwargs = parse_unknown_args(unknown)
-
-    img_parser.full_process(*unknown_args, **unknown_kwargs)
+    with open(scenarios_file, 'w') as outfile:
+        yaml_dump(scenarios_yaml, outfile)
 
 
 if __name__ == '__main__':

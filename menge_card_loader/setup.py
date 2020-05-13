@@ -12,7 +12,7 @@ setup_args = generate_distutils_setup(
     author_email='julian-kunze@gmx.de',
 )
 
-setup(install_requires=['scikit-image', 'triangle', 'opencv-python', 'PyYAML'],
+setup(install_requires=['scikit-image', 'triangle', 'opencv-python', 'PyYAML', 'tqdm'],
       classifiers=[
           "Programming Language :: Python :: 3",
           "License :: OSI Approved :: MIT License",
