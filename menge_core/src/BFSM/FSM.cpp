@@ -711,7 +711,7 @@ namespace Menge {
 				marker.scale.z = 0.5;
 				if(!agt->_isExternal){
 					crowd_all.poses.push_back(pose);
-                    marker.id = 2 * a;  // FOV independent markers even odd id
+                    marker.id = 2 * a;  // FOV independent markers get even id
 					crowd_expansion_all.markers.push_back(marker);
 				}
 				if(_sim->queryVisibility(agent_pos,robot_pos, 0.1) and !agt->_isExternal){
@@ -755,8 +755,9 @@ namespace Menge {
 			_pub_crowd_marker_all.publish(crowd_expansion_all);
 
 			if ( exceptionCount > 0 ) {
-				throw FSMFatalException();
-			}
+                throw FSMFatalException();
+            }
+
 			return this->allFinal();
 		}
 

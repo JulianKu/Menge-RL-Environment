@@ -396,6 +396,7 @@ namespace Menge {
 			 *	@param		msg and pref velocity		
 			 */
 			void setPrefVelFromMsg( const geometry_msgs::Twist& msg);
+
 			/*!
 			 *	@brief		Add ROS node handle to FSM
 			 *
@@ -487,7 +488,7 @@ namespace Menge {
 			ros::Publisher _pub_crowd_marker;
 			ros::Publisher _pub_crowd_marker_all;
 			ros::Publisher _pub_pose;
-			ros::Publisher _pub_odom;
+//			ros::Publisher _pub_odom;
 			ros::Publisher _pub_scan;
 			ros::Publisher _pub_endpoints;
             ros::Publisher _pub_static_scan;
