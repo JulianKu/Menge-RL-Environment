@@ -415,7 +415,7 @@ namespace Menge {
                 _pub_static_scan = _nh->advertise<sensor_msgs::LaserScan>("static_scan", 50);
                 _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50);
                 _srv_sim_state = _nh->advertiseService("get_sim_state", &Menge::BFSM::FSM::getSimStateSrv, this);
-                _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv");
+                _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv", true);
 
 			}
 			/*!

@@ -219,7 +219,8 @@ namespace Menge {
 //                ROS_INFO("ROS spinOnce called [%u] times", debug_counter);
 //				_msg_called = false;
                 menge_srv::CmdVel cmd_vel_srv;
-                if (_cmd_vel_srv_client.call(cmd_vel_srv)) {
+
+                if (_cmd_vel_srv_client.exists() && _cmd_vel_srv_client.call(cmd_vel_srv)) {
                     if (cmd_vel_srv.response.success) {
                         geometry_msgs::Twist msg;
                         msg = cmd_vel_srv.response.cmd_vel;
