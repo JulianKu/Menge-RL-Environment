@@ -54,7 +54,6 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <ros/callback_queue.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float32.h>
-#include <menge_srv/RunSim.h>
 
 namespace Menge {
 
@@ -109,24 +108,20 @@ namespace Menge {
 			 */
 			void setFixedStep( float stepSize );
 
+            void setStepFromMsg(const std_msgs::Bool::ConstPtr& msg);
+
+            void setRunFromMsg(const std_msgs::Bool::ConstPtr& msg);
+
             /*!
              *	@brief		Add ROS node handle to NullViewer
              *
              *	@param		pointer to node handle
              */
-
-            void setStepFromMsg(const std_msgs::Bool::ConstPtr& msg);
-
-            void setRunFromMsg(const std_msgs::Bool::ConstPtr& msg);
-
-            bool setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunSim::Response &res);
-
             void addNodeHandle( ros::NodeHandle *nh, ros::CallbackQueue &queue){
                 _nh = nh;
                 _nh->setCallbackQueue(&queue);
                 _sub_step = _nh->subscribe("step", 50, &Menge::Vis::NullViewer::setStepFromMsg, this);
                 _sub_run = _nh->subscribe("run", 50, &Menge::Vis::NullViewer::setRunFromMsg, this);
-                _srv_run = _nh->advertiseService("advance_simulation", &Menge::Vis::NullViewer::setStepFromSrv, this);
                 _pub_time = _nh->advertise<std_msgs::Float32>("menge_sim_time", 50);
                 _spinner.reset(new ros::AsyncSpinner(0, &queue));
             }
@@ -159,21 +154,6 @@ namespace Menge {
             bool    _scene_updated;
 
             /*!
-             *	@brief		Determines if simulation steps are requested via ROS service
-             */
-            bool    _srv_run_received;
-
-            /*!
-             *	@brief		number of simulation steps requested via ROS service
-             */
-            int     _srv_num_steps;
-
-            /*!
-             *	@brief		_viewTime when service was received
-             */
-            float    _srv_start_time;
-
-            /*!
              *	@brief		Controls whether the viewer advances the GLScene (true) or not (false).
              */
             bool	_pause;
@@ -196,7 +176,6 @@ namespace Menge {
             ros::NodeHandle *_nh;
             ros::Subscriber _sub_step;
             ros::Subscriber _sub_run;
-            ros::ServiceServer _srv_run;
             ros::Publisher _pub_time;
             boost::shared_ptr<ros::AsyncSpinner> _spinner;
 		};

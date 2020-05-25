@@ -87,22 +87,6 @@ namespace Menge {
             _pause = !msg->data;
         }
 
-bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunSim::Response &res) {
-            ROS_DEBUG("Service request received");
-            if (_pause) {
-                ros::getGlobalCallbackQueue()->clear();
-                _spinner->start();
-                _fpsTimer.restart();
-                _srv_run_received = true;
-                _srv_num_steps = req.numSteps;
-                _srv_start_time = _viewTime;
-                res.done = true;
-            } else {
-                res.done = false;
-            }
-            return true;
-        }
-
 		/////////////////////////////////////////////////////////////////////////////
 
 		void NullViewer::run(ros::CallbackQueue &queue) {
@@ -116,26 +100,13 @@ bool NullViewer::setStepFromSrv(menge_srv::RunSim::Request &req, menge_srv::RunS
             _step = false;
             bool lastItrStep = _step;
 			_fpsTimer.start();
-            _srv_run_received = false;
-            _srv_start_time = _viewTime;
-            _srv_num_steps = 0;
             std_msgs::Float32 time_msg;
 
 			while ( ros::ok() ) {
                 queue.callAvailable(ros::WallDuration());
 
-                if (_srv_run_received) {
-                    if (_viewTime < _srv_start_time + _srv_num_steps * _stepSize) {
-                        _pause = false;
-                        ROS_DEBUG("Unpause after service call");
-                    } else {
-                        _pause = true;
-                        _srv_run_received = false;
-                    }
-                }
-
                 // restart spinner and timer after pause
-                if (lastItrPaused && !_pause && !_srv_run_received) {
+                if (lastItrPaused && !_pause) {
                     ROS_DEBUG("Switched from pause to running after update");
                     ros::getGlobalCallbackQueue()->clear();
                     _spinner->start();
