@@ -69,6 +69,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
 #include <menge_srv/CmdVel.h>
+#include <menge_srv/SimState.h>
 
 #include <map>
 #include <iostream>
@@ -268,6 +269,15 @@ namespace Menge {
 			 */
 			const GoalSet * getGoalSet( size_t goalSetID );
 
+            /*!
+             *	@brief		Get simulation state (robot pose, crowd pose with radius, static obstacle scan)
+             *	            via ROS service
+             *
+             *	@returns	A boolean reporting if all agents are in a final state (true)
+             *				or not (false).
+             */
+             bool getSimStateSrv(menge_srv::SimState::Request &req, menge_srv::SimState::Response &res);
+
 			/*!
 			 *	@brief		Update the fsm state by one time step
 			 *
@@ -404,6 +414,7 @@ namespace Menge {
 				_pub_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_end", 50);
                 _pub_static_scan = _nh->advertise<sensor_msgs::LaserScan>("static_scan", 50);
                 _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50);
+                _srv_sim_state = _nh->advertiseService("get_sim_state", &Menge::BFSM::FSM::getSimStateSrv, this);
                 _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv");
 
 			}
@@ -459,6 +470,13 @@ namespace Menge {
 //			 */
 //			bool _msg_called = false;
 
+            /*!
+             * ROS message variables for service
+             */
+            geometry_msgs::PoseStamped _robot_pose;
+            visualization_msgs::MarkerArray _crowd_expansion;
+            geometry_msgs::PoseArray _static_obs;
+
 			/*!
 			 *	@brief		ROS node handle
 			 */			
@@ -474,6 +492,7 @@ namespace Menge {
 			ros::Publisher _pub_endpoints;
             ros::Publisher _pub_static_scan;
             ros::Publisher _pub_static_endpoints;
+            ros::ServiceServer _srv_sim_state;
             ros::ServiceClient _cmd_vel_srv_client;
 			Agents::PrefVelocity prefVelMsg;
 			std::vector< size_t > _robotIDList;

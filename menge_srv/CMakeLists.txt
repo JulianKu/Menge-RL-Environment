@@ -58,7 +58,7 @@ find_package(catkin REQUIRED
 
 ## Generate services in the 'srv' folder
 add_service_files(
-   FILES CmdVel.srv
+   FILES CmdVel.srv SimState.srv
 )
 
 ## Generate actions in the 'action' folder

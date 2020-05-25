@@ -518,6 +518,34 @@ namespace Menge {
 
 		/////////////////////////////////////////////////////////////////////
 
+		bool FSM::getSimStateSrv(menge_srv::SimState::Request &req, menge_srv::SimState::Response &res) {
+		    ROS_INFO("Sim State service requested");
+
+//		    if (SIM_TIME) {
+//                std_msgs::Float32 sim_time_msg;
+//                sim_time_msg.data = SIM_TIME;
+//                res.sim_time = sim_time_msg;
+//                ROS_INFO("time: [%f]", sim_time_msg.data);
+//		    }
+		    if (_robot_pose.header.stamp.toSec()) {
+                res.robot_pose = _robot_pose;
+                ROS_INFO("rob pose: x:[%f], y:[%f], z:[%f]", _robot_pose.pose.position.x,
+                        _robot_pose.pose.position.y, _robot_pose.pose.position.z);
+		    }
+            if (!_crowd_expansion.markers.empty()) {
+                res.crowd_expansion = _crowd_expansion;
+                ROS_INFO("num peds: [%lu]", _crowd_expansion.markers.size());
+            }
+            if (!_static_obs.poses.empty()) {
+                res.static_obs = _static_obs;
+                ROS_INFO("obs: [%lu]", _static_obs.poses.size());
+            }
+
+            return true;
+		}
+
+        /////////////////////////////////////////////////////////////////////
+
 		bool FSM::doStep() {
 			// NOTE: This is a cast from size_t to int to be compatible with older implementations
 			//		of openmp which require signed integers as loop variables
@@ -611,6 +639,8 @@ namespace Menge {
 					poseStamped.header.stamp = current_time;
 					//Change it to odom frame for IMU measurements
 					poseStamped.header.frame_id = "map";
+                    // Update robot pose
+					_robot_pose = poseStamped;
 					_pub_pose.publish(poseStamped);
                     
                     //send laser sensor messages
@@ -638,6 +668,8 @@ namespace Menge {
 					transformToEndpoints(robot_pos,robot_angle,ls_static,end_static);
                     end_static.header.frame_id = "map";
 			        end_static.header.stamp = current_time;
+			        // update statics obstacles pose array
+                    _static_obs = end_static;
                     _pub_static_endpoints.publish(end_static);
 				}
 			}
@@ -713,6 +745,7 @@ namespace Menge {
 			crowd.header.stamp = current_time;
 			crowd.header.frame_id = "map";
 			_pub_crowd.publish(crowd);
+            _crowd_expansion = crowd_expansion;
 			_pub_crowd_marker.publish(crowd_expansion);
 
 			crowd_all.header.stamp = current_time;
