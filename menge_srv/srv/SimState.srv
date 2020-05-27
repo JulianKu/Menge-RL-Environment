@@ -1,7 +1,0 @@
-#request fields
----
-#response fields
-#std_msgs/Float32 sim_time
-geometry_msgs/PoseStamped robot_pose
-visualization_msgs/MarkerArray crowd_expansion
-geometry_msgs/PoseArray static_obs

@@ -55,6 +55,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <vector>
 #include <cassert>
 
+
 // ROS
 #include <ros/ros.h>
 #include <ros/spinner.h>
@@ -390,12 +391,6 @@ namespace Menge {
 			 *	@param		v		The modifier to add
 			 */
 			void addVelModifier( VelModifier * v ) { _velModifiers.push_back( v ); }
-			/*!
-			 *	@brief		Callback function for the ros message
-			 *
-			 *	@param		msg and pref velocity		
-			 */
-			void setPrefVelFromMsg( const geometry_msgs::Twist& msg);
 
 			/*!
 			 *	@brief		Add ROS node handle to FSM
@@ -415,9 +410,7 @@ namespace Menge {
 				_pub_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_end", 50);
                 _pub_static_scan = _nh->advertise<sensor_msgs::LaserScan>("static_scan", 50);
                 _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50);
-                _srv_sim_state = _nh->advertiseService("get_sim_state", &Menge::BFSM::FSM::getSimStateSrv, this);
-                _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv", true);
-
+                _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv");
 			}
 			/*!
 			 *	@brief		return ROS node handle

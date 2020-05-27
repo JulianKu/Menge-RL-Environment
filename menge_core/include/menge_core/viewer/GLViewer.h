@@ -465,8 +465,9 @@ namespace Menge {
             ros::Subscriber _sub_run;
             ros::Publisher _pub_time;
             boost::shared_ptr<ros::AsyncSpinner> _spinner;
+
 			/*!
-			 *	@brief		Initizlies the OpenGL lighting based on the set of lights.
+			 *	@brief		Initializes the OpenGL lighting based on the set of lights.
 			 */
 			void initLighting();
 
