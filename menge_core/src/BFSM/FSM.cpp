@@ -158,6 +158,21 @@ namespace Menge {
 //			prefVelMsg.turn(msg.angular.z);
 //		}*/
 
+
+        /////////////////////////////////////////////////////////////////////
+
+        void FSM::setVelFromMsg(const geometry_msgs::TwistConstPtr& vel_msg) {
+            ROS_INFO("I heard: velocity: [%f]", vel_msg->linear.x);
+            ROS_INFO("I heard: angle: [%f]", vel_msg->angular.z);
+
+            float speed = vel_msg->linear.x;
+            if(speed == 0) speed = 0.0001;
+
+            prefVelMsg.setSpeed(speed);
+            prefVelMsg.turn(vel_msg->angular.z);
+
+        }
+
 		void FSM::computePrefVelocity( Agents::BaseAgent * agent ) {
 			const size_t ID = agent->_id;
 			// Evalute the new state's velocity
@@ -206,45 +221,14 @@ namespace Menge {
 			}
 
 			if(agent->_isExternal){
-				//std::cout << "External Agent detected : " << ID << std::endl;
-				prefVelMsg.setSpeed(0.0);
-				//std::cout << "Before spin "<< std::endl;
-//                ROS_INFO("speed before: [%f]", prefVelMsg.getSpeed());
-//                ROS_INFO("preferred before: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
-//                int debug_counter = 0;
-//                while (!_msg_called) {
-//                    debug_counter += 1;
-//                    ros::spinOnce();
-//                }
-//                ROS_INFO("ROS spinOnce called [%u] times", debug_counter);
-//				_msg_called = false;
-                menge_srv::CmdVel cmd_vel_srv;
 
-                if (_cmd_vel_srv_client.exists() && _cmd_vel_srv_client.call(cmd_vel_srv)) {
-                    if (cmd_vel_srv.response.success) {
-                        geometry_msgs::Twist msg;
-                        msg = cmd_vel_srv.response.cmd_vel;
-//                        ROS_INFO("From srv got linear x :[%f]", msg.linear.x);
-//                        ROS_INFO("From srv got angular z :[%f]", msg.angular.z);
+                // TODO: make robot non-holonomic here
 
-                        // TODO: make robot non-holonomic here
-
-                        float speed = msg.linear.x;
-                        if(speed == 0) speed = 0.0001;
-
-                        prefVelMsg.setSpeed(speed);
-                        prefVelMsg.turn(msg.angular.z);
-                    }
-                }
-
-                //std::cout << "After spin "<< std::endl;
                 ROS_INFO("speed after: [%f]", prefVelMsg.getSpeed());
                 ROS_INFO("preferred dir after: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
 
 				newVel = prefVelMsg;
 
-				std::cout << (newVel.getPreferred()).x() << " : " << (newVel.getPreferred()).y() << std::endl;
-				//std::cout << "Direction Set from the ROS message!" << std::endl;
 			}
 
 			//agent will now have a set preferred velocity method
@@ -515,34 +499,6 @@ namespace Menge {
 				if ( !_currNode[ a ]->getFinal() ) return false;
 			}
 			return true;
-		}
-
-		/////////////////////////////////////////////////////////////////////
-
-		bool FSM::getSimStateSrv(menge_srv::SimState::Request &req, menge_srv::SimState::Response &res) {
-		    ROS_INFO("Sim State service requested");
-
-//		    if (SIM_TIME) {
-//                std_msgs::Float32 sim_time_msg;
-//                sim_time_msg.data = SIM_TIME;
-//                res.sim_time = sim_time_msg;
-//                ROS_INFO("time: [%f]", sim_time_msg.data);
-//		    }
-		    if (_robot_pose.header.stamp.toSec()) {
-                res.robot_pose = _robot_pose;
-                ROS_INFO("rob pose: x:[%f], y:[%f], z:[%f]", _robot_pose.pose.position.x,
-                        _robot_pose.pose.position.y, _robot_pose.pose.position.z);
-		    }
-            if (!_crowd_expansion.markers.empty()) {
-                res.crowd_expansion = _crowd_expansion;
-                ROS_INFO("num peds: [%lu]", _crowd_expansion.markers.size());
-            }
-            if (!_static_obs.poses.empty()) {
-                res.static_obs = _static_obs;
-                ROS_INFO("obs: [%lu]", _static_obs.poses.size());
-            }
-
-            return true;
 		}
 
         /////////////////////////////////////////////////////////////////////
