@@ -396,14 +396,14 @@ namespace Menge {
 //				_sub = _nh->subscribe("cmd_vel", 50, &Menge::BFSM::FSM::setPrefVelFromMsg, this);
 				_pub_crowd = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose", 50);
 				_pub_crowd_all = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose_all", 50);
-				_pub_crowd_marker = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion", 50);
+				_pub_crowd_marker = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion", 50, true);
 				_pub_crowd_marker_all = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion_all", 50);
 				//_pub_odom = _nh->advertise<nav_msgs::Odometry>("odom", 50);
-				_pub_pose = _nh->advertise<geometry_msgs::PoseStamped>("pose", 50);
+				_pub_pose = _nh->advertise<geometry_msgs::PoseStamped>("pose", 50, true);
 				_pub_scan = _nh->advertise<sensor_msgs::LaserScan>("base_scan", 50);
 				_pub_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_end", 50);
                 _pub_static_scan = _nh->advertise<sensor_msgs::LaserScan>("static_scan", 50);
-                _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50);
+                _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50, true);
                 _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv");
 
 			}
