@@ -120,9 +120,9 @@ namespace Menge {
             void addNodeHandle( ros::NodeHandle *nh, ros::CallbackQueue &queue){
                 _nh = nh;
                 _nh->setCallbackQueue(&queue);
-                _sub_step = _nh->subscribe("step", 50, &Menge::Vis::NullViewer::setStepFromMsg, this);
-                _sub_run = _nh->subscribe("run", 50, &Menge::Vis::NullViewer::setRunFromMsg, this);
-                _pub_time = _nh->advertise<std_msgs::Float32>("menge_sim_time", 50);
+                _sub_step = _nh->subscribe("step", 50, &Menge::Vis::NullViewer::setStepFromMsg, this, ros::TransportHints().tcpNoDelay());
+                _sub_run = _nh->subscribe("run", 50, &Menge::Vis::NullViewer::setRunFromMsg, this, ros::TransportHints().tcpNoDelay());
+                _pub_time = _nh->advertise<std_msgs::Float32>("menge_sim_time", 50, true);
                 _spinner.reset(new ros::AsyncSpinner(0, &queue));
             }
             /*!

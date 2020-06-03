@@ -395,7 +395,7 @@ namespace Menge {
 			 */
 			void addNodeHandle( ros::NodeHandle *nh){
 				_nh = nh;
-				_sub_vel = _nh->subscribe("cmd_vel", 1000, &Menge::BFSM::FSM::setVelFromMsg, this);
+				_sub_vel = _nh->subscribe("cmd_vel", 1000, &Menge::BFSM::FSM::setVelFromMsg, this); //, ros::TransportHints().tcpNoDelay());
 				_pub_crowd = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose", 50);
 				_pub_crowd_all = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose_all", 50);
 				_pub_crowd_marker = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion", 50, true);
