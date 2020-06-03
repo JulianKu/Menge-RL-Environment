@@ -224,8 +224,8 @@ namespace Menge {
 
                 // TODO: make robot non-holonomic here
 
-                ROS_INFO("speed after: [%f]", prefVelMsg.getSpeed());
-                ROS_INFO("preferred dir after: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
+                ROS_INFO("set pref speed: [%f]", prefVelMsg.getSpeed());
+                ROS_INFO("set preferred dir: x: [%f], y: [%f]", prefVelMsg.getPreferred()._x, prefVelMsg.getPreferred()._y);
 
 				newVel = prefVelMsg;
 
