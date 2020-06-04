@@ -172,7 +172,8 @@ namespace Menge {
 										 const std::string & scbVersion, 
 										 bool visualize, 
 										 bool VERBOSE,
-										 ros::NodeHandle *nh);
+										 ros::NodeHandle *nh,
+										 ros::CallbackQueue &queue);
 
 		/*!
 		 *	@brief		Populates the given GLScene with visualization entities tracked 
