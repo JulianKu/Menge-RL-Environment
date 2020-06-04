@@ -110,7 +110,7 @@ namespace Menge {
 		GLViewer::GLViewer( int width, int height ): _width( width ), _height( height ), _scene( 0 ), _downX( 0 ), 
 													 _downY(0), _update(false), _drawWorldAxis(false), 
 													 _showFPS(false), _fpsDisplayTimer(10), _pause(true), _running(true),
-													 _viewTime(0.f),
+													 _viewTime(0.f), _requestedSteps(0),
 													 _bgColor(0.74f, 0.69f, 0.64f), _stepSize(1 / 120.f), _bgImg(0x0),
 													 _dumpImages(false), _validDumpPath(true), _dumpPath( ".\\" ), _imgCount(0)
 		{
@@ -180,10 +180,11 @@ namespace Menge {
 
 		///////////////////////////////////////////////////////////////////////////
 
-		void GLViewer::setStepFromMsg(const std_msgs::Bool::ConstPtr& msg) {
-            //copy from message and into step
-            ROS_DEBUG("msg received on /step:\n\tmake next sim step : [%s]", msg->data ? "true" : "false");
-            _step = msg->data;
+		void GLViewer::setStepFromMsg(const std_msgs::UInt8::ConstPtr& msg) {
+            //copy from message and into step variables
+            ROS_DEBUG("msg received on /step:\n\tnumber of sim steps to take : [%d]", msg->data);
+            _step = true;
+            _requestedSteps = msg->data;
 		}
 
         void GLViewer::setRunFromMsg(const std_msgs::Bool::ConstPtr& msg) {
@@ -197,8 +198,10 @@ namespace Menge {
 			bool redraw = true;
 			float time = 0.f;
             bool lastItrPaused = _pause;
-            bool lastItrStep = _step;
-			_fpsDisplayTimer.start();
+            _step = false;
+            _requestedSteps = 0;
+            uint8_t stepCounter = 0;
+            _fpsDisplayTimer.start();
             std_msgs::Float32 time_msg;
 
 			while ( _running && ros::ok() ) {
@@ -232,13 +235,24 @@ namespace Menge {
 
                 // start spinner for step + update sim
                 } else if ( _pause && _step ) {
-                    ROS_DEBUG("Perform single simulation step");
-                    ros::getGlobalCallbackQueue()->clear();
-                    _spinner->start();
-                    offsetTime(_stepSize);
-                    redraw = _update = true;
-                    _step = false;
-                    lastItrStep = true;
+                    if (stepCounter == 0) {
+                        ROS_DEBUG("Perform [%d] simulation steps", _requestedSteps);
+                        ros::getGlobalCallbackQueue()->clear();
+                        _spinner->start();
+                    }
+                    stepCounter += 1;
+
+                    if (stepCounter > _requestedSteps) {
+                        ROS_DEBUG("Performed requested steps");
+                        _step = false;
+                        stepCounter = 0;
+                        _requestedSteps = 0;
+                        _spinner->stop();
+                    } else {
+                        offsetTime(_stepSize);
+                        redraw = _update = true;
+                    }
+
                 } else if ( !_pause ) startTimer( FULL_FRAME );
 
 				if ( redraw || _update || !_pause ) {
@@ -281,9 +295,8 @@ namespace Menge {
 				}
 
                 // stop spinner after pausing simulation or after executing step
-                if ((!lastItrPaused && _pause) || lastItrStep) {
+                if (!lastItrPaused && _pause) {
                     _spinner->stop();
-                    lastItrStep = false;
                 }
 				_update = false;
 				lastItrPaused = _pause;

@@ -47,7 +47,7 @@ namespace Menge {
 		//                     Implementation of NullViewer
 		/////////////////////////////////////////////////////////////////////////////
 
-		NullViewer::NullViewer(): _scene(0x0), _stepSize(0.1f) {
+		NullViewer::NullViewer(): _scene(0x0), _stepSize(0.1f), _requestedSteps(0) {
 		}
 
 		/////////////////////////////////////////////////////////////////////////////
@@ -75,10 +75,11 @@ namespace Menge {
 
         ///////////////////////////////////////////////////////////////////////////
 
-        void NullViewer::setStepFromMsg(const std_msgs::Bool::ConstPtr& msg) {
-            //copy from message and into step
-            ROS_DEBUG("msg received on /step:\n\tmake next sim step : [%s]", msg->data ? "true" : "false");
-            _step = msg->data;
+        void NullViewer::setStepFromMsg(const std_msgs::UInt8::ConstPtr& msg) {
+            //copy from message and into step variables
+            ROS_DEBUG("msg received on /step:\n\tnumber of sim steps to take : [%d]", msg->data);
+            _step = true;
+            _requestedSteps = msg->data;
         }
 
         void NullViewer::setRunFromMsg(const std_msgs::Bool::ConstPtr& msg) {
@@ -98,7 +99,8 @@ namespace Menge {
             _pause = true;
             bool lastItrPaused = _pause;
             _step = false;
-            bool lastItrStep = _step;
+            _requestedSteps = 0;
+            uint8_t stepCounter = 0;
 			_fpsTimer.start();
             std_msgs::Float32 time_msg;
 
@@ -118,12 +120,24 @@ namespace Menge {
                 }
                 // make simulation step if requested
                 if (_pause && _step) {
-                    ROS_DEBUG("Perform single simulation step");
-                    _spinner->start();
-                    _viewTime += _stepSize;
-                    _scene_updated = true;
-                    _step = false;
-                    lastItrStep = true;
+                    if (stepCounter == 0) {
+                        ROS_DEBUG("Perform [%d] simulation steps", _requestedSteps);
+                        ros::getGlobalCallbackQueue()->clear();
+                        _spinner->start();
+                    }
+                    stepCounter += 1;
+
+                    if (stepCounter > _requestedSteps) {
+                        ROS_DEBUG("Performed requested steps");
+                        _step = false;
+                        stepCounter = 0;
+                        _requestedSteps = 0;
+                        _spinner->stop();
+
+                    } else {
+                        _viewTime += _stepSize;
+                        _scene_updated = true;
+                    }
                 } else if (!_pause) {
                     _viewTime += _stepSize;
                     _scene_updated = true;
@@ -142,10 +156,9 @@ namespace Menge {
                 }
 
                 // stop spinner after pausing simulation or after executing step
-                if ((!lastItrPaused && _pause) || lastItrStep) {
+                if (!lastItrPaused && _pause) {
                     ROS_INFO("Stop simulation");
                     _spinner->stop();
-                    lastItrStep = false;
                 }
 
                 lastItrPaused = _pause;

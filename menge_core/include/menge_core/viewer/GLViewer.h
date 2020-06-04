@@ -63,6 +63,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <ros/spinner.h>
 #include <ros/callback_queue.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/UInt8.h>
 #include <std_msgs/Float32.h>
 
 namespace Menge {
@@ -302,7 +303,7 @@ namespace Menge {
 			 *	@param		pointer to node handle
 			 */
 
-			void setStepFromMsg(const std_msgs::Bool::ConstPtr& msg);
+			void setStepFromMsg(const std_msgs::UInt8::ConstPtr& msg);
 
             void setRunFromMsg(const std_msgs::Bool::ConstPtr& msg);
 
@@ -398,6 +399,11 @@ namespace Menge {
 			 *	@brief		Determines if a simulation step is requested
 			 */
 			bool    _step;
+
+			/*!
+			 *  @brief      Determines number of requested simulation steps
+			 */
+			uint8_t _requestedSteps;
 
 			/*!
 			 *	@brief		Determines if the viewer should still operate -- as long as it is true, it will
