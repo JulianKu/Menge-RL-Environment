@@ -47,7 +47,7 @@ namespace Menge {
 		//					Implementation of PrefVelocity
 		////////////////////////////////////////////////////////////////
 
-		PrefVelocity::PrefVelocity(): _left(1.f,0.f), _right(1.f,0.f), _speed(1.f), _preferred(1.f,0.f), _target(0.f,0.f) {}
+		PrefVelocity::PrefVelocity(): _left(1.f,0.f), _right(1.f,0.f), _speed(0.f), _preferred(1.f,0.f), _target(0.f,0.f) {}
 
 		////////////////////////////////////////////////////////////////
 

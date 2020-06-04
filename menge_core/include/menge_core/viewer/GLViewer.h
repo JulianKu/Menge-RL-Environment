@@ -309,9 +309,9 @@ namespace Menge {
 			void addNodeHandle( ros::NodeHandle *nh, ros::CallbackQueue &queue){
 				_nh = nh;
 				_nh->setCallbackQueue(&queue);
-				_sub_step = _nh->subscribe("step", 50, &Menge::Vis::GLViewer::setStepFromMsg, this);
-				_sub_run = _nh->subscribe("run", 50, &Menge::Vis::GLViewer::setRunFromMsg, this);
-				_pub_time = _nh->advertise<std_msgs::Float32>("menge_sim_time", 50);
+				_sub_step = _nh->subscribe("step", 50, &Menge::Vis::GLViewer::setStepFromMsg, this, ros::TransportHints().tcpNoDelay());
+				_sub_run = _nh->subscribe("run", 50, &Menge::Vis::GLViewer::setRunFromMsg, this, ros::TransportHints().tcpNoDelay());
+				_pub_time = _nh->advertise<std_msgs::Float32>("menge_sim_time", 50, true);
                 _spinner.reset(new ros::AsyncSpinner(0, &queue));
 			}
 			/*!
@@ -465,8 +465,9 @@ namespace Menge {
             ros::Subscriber _sub_run;
             ros::Publisher _pub_time;
             boost::shared_ptr<ros::AsyncSpinner> _spinner;
+
 			/*!
-			 *	@brief		Initizlies the OpenGL lighting based on the set of lights.
+			 *	@brief		Initializes the OpenGL lighting based on the set of lights.
 			 */
 			void initLighting();
 

@@ -55,6 +55,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <vector>
 #include <cassert>
 
+
 // ROS
 #include <ros/ros.h>
 #include <ros/spinner.h>
@@ -68,8 +69,6 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
-#include <menge_srv/CmdVel.h>
-#include <menge_srv/SimState.h>
 
 #include <map>
 #include <iostream>
@@ -269,15 +268,6 @@ namespace Menge {
 			 */
 			const GoalSet * getGoalSet( size_t goalSetID );
 
-            /*!
-             *	@brief		Get simulation state (robot pose, crowd pose with radius, static obstacle scan)
-             *	            via ROS service
-             *
-             *	@returns	A boolean reporting if all agents are in a final state (true)
-             *				or not (false).
-             */
-             bool getSimStateSrv(menge_srv::SimState::Request &req, menge_srv::SimState::Response &res);
-
 			/*!
 			 *	@brief		Update the fsm state by one time step
 			 *
@@ -390,12 +380,13 @@ namespace Menge {
 			 *	@param		v		The modifier to add
 			 */
 			void addVelModifier( VelModifier * v ) { _velModifiers.push_back( v ); }
-			/*!
-			 *	@brief		Callback function for the ros message
-			 *
-			 *	@param		msg and pref velocity		
-			 */
-			void setPrefVelFromMsg( const geometry_msgs::Twist& msg);
+
+            /*!
+             *	@brief		Callback function for the ros message
+             *
+             *	@param		msg and pref velocity
+             */
+            void setVelFromMsg(const geometry_msgs::TwistConstPtr& vel);
 
 			/*!
 			 *	@brief		Add ROS node handle to FSM
@@ -404,20 +395,17 @@ namespace Menge {
 			 */
 			void addNodeHandle( ros::NodeHandle *nh){
 				_nh = nh;
-//				_sub = _nh->subscribe("cmd_vel", 50, &Menge::BFSM::FSM::setPrefVelFromMsg, this);
+				_sub_vel = _nh->subscribe("cmd_vel", 1000, &Menge::BFSM::FSM::setVelFromMsg, this); //, ros::TransportHints().tcpNoDelay());
 				_pub_crowd = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose", 50);
 				_pub_crowd_all = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose_all", 50);
-				_pub_crowd_marker = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion", 50);
+				_pub_crowd_marker = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion", 50, true);
 				_pub_crowd_marker_all = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion_all", 50);
 				//_pub_odom = _nh->advertise<nav_msgs::Odometry>("odom", 50);
-				_pub_pose = _nh->advertise<geometry_msgs::PoseStamped>("pose", 50);
+				_pub_pose = _nh->advertise<geometry_msgs::PoseStamped>("pose", 50, true);
 				_pub_scan = _nh->advertise<sensor_msgs::LaserScan>("base_scan", 50);
 				_pub_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_end", 50);
                 _pub_static_scan = _nh->advertise<sensor_msgs::LaserScan>("static_scan", 50);
-                _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50);
-                _srv_sim_state = _nh->advertiseService("get_sim_state", &Menge::BFSM::FSM::getSimStateSrv, this);
-                _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv", true);
-
+                _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50, true);
 			}
 			/*!
 			 *	@brief		return ROS node handle
@@ -482,7 +470,7 @@ namespace Menge {
 			 *	@brief		ROS node handle
 			 */			
 			ros::NodeHandle *_nh;
-//			ros::Subscriber _sub;
+			ros::Subscriber _sub_vel;
 			ros::Publisher _pub_crowd;
 			ros::Publisher _pub_crowd_all;
 			ros::Publisher _pub_crowd_marker;
@@ -493,8 +481,6 @@ namespace Menge {
 			ros::Publisher _pub_endpoints;
             ros::Publisher _pub_static_scan;
             ros::Publisher _pub_static_endpoints;
-            ros::ServiceServer _srv_sim_state;
-            ros::ServiceClient _cmd_vel_srv_client;
 			Agents::PrefVelocity prefVelMsg;
 			std::vector< size_t > _robotIDList;
 		};
