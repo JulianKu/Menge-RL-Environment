@@ -1,5 +1,0 @@
-#request fields
-uint8 numSteps
----
-#response fields
-bool done

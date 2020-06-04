@@ -55,6 +55,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <vector>
 #include <cassert>
 
+
 // ROS
 #include <ros/ros.h>
 #include <ros/spinner.h>
@@ -68,7 +69,6 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
-#include <menge_srv/CmdVel.h>
 
 #include <map>
 #include <iostream>
@@ -380,20 +380,23 @@ namespace Menge {
 			 *	@param		v		The modifier to add
 			 */
 			void addVelModifier( VelModifier * v ) { _velModifiers.push_back( v ); }
-			/*!
-			 *	@brief		Callback function for the ros message
-			 *
-			 *	@param		msg and pref velocity		
-			 */
-			void setPrefVelFromMsg( const geometry_msgs::Twist& msg);
+
+            /*!
+             *	@brief		Callback function for the ros message
+             *
+             *	@param		msg and pref velocity
+             */
+            void setVelFromMsg(const geometry_msgs::TwistConstPtr& vel);
+
 			/*!
 			 *	@brief		Add ROS node handle to FSM
 			 *
 			 *	@param		pointer to node handle		
 			 */
-			void addNodeHandle( ros::NodeHandle *nh){
+			void addNodeHandle( ros::NodeHandle *nh, ros::CallbackQueue &queue){
 				_nh = nh;
-//				_sub = _nh->subscribe("cmd_vel", 50, &Menge::BFSM::FSM::setPrefVelFromMsg, this);
+				_nh->setCallbackQueue(&queue);
+				_sub_vel = _nh->subscribe("cmd_vel", 1000, &Menge::BFSM::FSM::setVelFromMsg, this); //, ros::TransportHints().tcpNoDelay());
 				_pub_crowd = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose", 50);
 				_pub_crowd_all = _nh->advertise<geometry_msgs::PoseArray>("crowd_pose_all", 50);
 				_pub_crowd_marker = _nh->advertise<visualization_msgs::MarkerArray>("crowd_expansion", 50, true);
@@ -404,8 +407,6 @@ namespace Menge {
 				_pub_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_end", 50);
                 _pub_static_scan = _nh->advertise<sensor_msgs::LaserScan>("static_scan", 50);
                 _pub_static_endpoints = _nh->advertise<geometry_msgs::PoseArray>("laser_static_end", 50, true);
-                _cmd_vel_srv_client = _nh->serviceClient<menge_srv::CmdVel>("cmd_vel_srv");
-
 			}
 			/*!
 			 *	@brief		return ROS node handle
@@ -459,22 +460,28 @@ namespace Menge {
 //			 */
 //			bool _msg_called = false;
 
+            /*!
+             * ROS message variables for service
+             */
+            geometry_msgs::PoseStamped _robot_pose;
+            visualization_msgs::MarkerArray _crowd_expansion;
+            geometry_msgs::PoseArray _static_obs;
+
 			/*!
 			 *	@brief		ROS node handle
 			 */			
 			ros::NodeHandle *_nh;
-//			ros::Subscriber _sub;
+			ros::Subscriber _sub_vel;
 			ros::Publisher _pub_crowd;
 			ros::Publisher _pub_crowd_all;
 			ros::Publisher _pub_crowd_marker;
 			ros::Publisher _pub_crowd_marker_all;
 			ros::Publisher _pub_pose;
-			ros::Publisher _pub_odom;
+//			ros::Publisher _pub_odom;
 			ros::Publisher _pub_scan;
 			ros::Publisher _pub_endpoints;
             ros::Publisher _pub_static_scan;
             ros::Publisher _pub_static_endpoints;
-            ros::ServiceClient _cmd_vel_srv_client;
 			Agents::PrefVelocity prefVelMsg;
 			std::vector< size_t > _robotIDList;
 		};

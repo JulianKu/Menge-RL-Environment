@@ -79,22 +79,28 @@ namespace Menge {
 		////////////////////////////////////////////////////////////////
 
         void BaseAgent::update(float timeStep) {
-            float delV = abs(_vel - _velNew);
-            // Check to see if new velocity violates acceleration constraints...
-            // TODO: Make the acceleration constraint respect collisions (particularly with
-            //    obstacles.  I.e. confirm that the new velocity STILL won't collide
-            //    with the neighboring obstacles.
-            //  The slick way to do this is to replace the float in the _nearObstacles to
-            //    represent the minimum acceleration required to avoid collision with the
-            //    obstacle in the next time step.  Then I can simply take the larger of the
-            ///    user-define max acceleration and the smallest required acceleration
-            if (delV > _maxAccel * timeStep) {
-                float w = _maxAccel * timeStep / delV;
-                _vel = (1.f - w) * _vel + w * _velNew;
-            } else {
-                _vel = _velNew;
+		    if (_isExternal) {
+                std::cout << "external agent: set velocity to preferred" << std::endl;
+		        _vel.set(_velPref.getPreferredVel());
+		    } else {
+                float delV = abs(_vel - _velNew);
+                // Check to see if new velocity violates acceleration constraints...
+                // TODO: Make the acceleration constraint respect collisions (particularly with
+                //    obstacles.  I.e. confirm that the new velocity STILL won't collide
+                //    with the neighboring obstacles.
+                //  The slick way to do this is to replace the float in the _nearObstacles to
+                //    represent the minimum acceleration required to avoid collision with the
+                //    obstacle in the next time step.  Then I can simply take the larger of the
+                ///    user-define max acceleration and the smallest required acceleration
+                if (delV > _maxAccel * timeStep) {
+                    float w = _maxAccel * timeStep / delV;
+                    _vel = (1.f - w) * _vel + w * _velNew;
+                } else {
+                    _vel = _velNew;
+                }
             }
-            _pos += _vel * timeStep;
+
+		    _pos += _vel * timeStep;
 
             updateOrient(timeStep);
             // postUpdate();
@@ -103,55 +109,67 @@ namespace Menge {
 ////////////////////////////////////////////////////////////////
 
         void BaseAgent::updateOrient(float timeStep) {
-            // This stabilizes orientation
-            //  As the agent slows down, the target orientation becomes preferred direction.
-            //  We define a threshold as a fraction of preferred speed.
-            //  If the agents speed is at or above that threshold, orientation is defined by the
-            //  movement vector.
-            //  If the speed is zero, the orientation is the direction of preferred velocity.
-            //  The transition function is designed such that the transition from movement direction
-            //  to preferred movement direction falls off slowly (initially) and rapidly at low
-            //  speeds.
-            float speed = abs(_vel);
-            const float speedThresh = _prefSpeed / 3.f;
-            Vector2 newOrient(_orient);  // by default new is old
-            Vector2 moveDir = _vel / speed;
-            if (speed >= speedThresh) {
-                newOrient = moveDir;
+		    if (_isExternal) {
+		        std::cout << "external agent: set orient to preferred" << std::endl;
+                _orient.set(_velPref.getPreferred());
             } else {
-                float frac = sqrtf(speed / speedThresh);
-                Vector2 prefDir = _velPref.getPreferred();
-                // prefDir *can* be zero if we've arrived at goal.  Only use it if it's non-zero.
-                if (absSq(prefDir) > 0.000001f) {
-                    newOrient = frac * moveDir + (1.f - frac) * prefDir;
-                    newOrient.normalize();
-                }
-            }
-
-            // TODO(curds01): At low speeds, small movement perturbations cause radically different
-            //  orientation changes.  It seems *reasonable* to scale maximum angular velocity
-            //  by the travel speed (in some sense) to prevent this.  HOWEVER, this would break
-            //  agents that have a sense of facing direction that they actively control.
-
-            // Now limit angular velocity.
-            const float MAX_ANGLE_CHANGE = timeStep * _maxAngVel;
-            float maxCt = cos(MAX_ANGLE_CHANGE);
-            // inner product of normalized vectors == cosine between vectors
-            // ct = cos(angle between newOrient and _orient)
-            float ct = newOrient * _orient;
-            if (ct < maxCt) {
-                // changing direction at a rate greater than _maxAngVel
-                float maxSt = sin(MAX_ANGLE_CHANGE);
-                if (det(_orient, newOrient) > 0.f) {
-                    // rotate _orient left
-                    _orient.set(maxCt * _orient._x - maxSt * _orient._y, maxSt * _orient._x + maxCt * _orient._y);
+                // This stabilizes orientation
+                //  As the agent slows down, the target orientation becomes preferred direction.
+                //  We define a threshold as a fraction of preferred speed.
+                //  If the agents speed is at or above that threshold, orientation is defined by the
+                //  movement vector.
+                //  If the speed is zero, the orientation is the direction of preferred velocity.
+                //  The transition function is designed such that the transition from movement direction
+                //  to preferred movement direction falls off slowly (initially) and rapidly at low
+                //  speeds.
+                float speed = abs(_vel);
+                const float speedThresh = _prefSpeed / 3.f;
+                Vector2 newOrient(_orient);  // by default new is old
+                Vector2 moveDir = _vel / speed;
+                if (speed >= speedThresh) {
+//                    std::cout << "speed above threshold for angle change" << std::endl;
+                    newOrient = moveDir;
                 } else {
-                    // rotate _orient right
-                    _orient.set(maxCt * _orient._x + maxSt * _orient._y,
-                                -maxSt * _orient._x + maxCt * _orient._y);
+//                    std::cout << "speed below threshold for angle change" << std::endl;
+                    float frac = sqrtf(speed / speedThresh);
+                    Vector2 prefDir = _velPref.getPreferred();
+                    // prefDir *can* be zero if we've arrived at goal.  Only use it if it's non-zero.
+                    if (absSq(prefDir) > 0.000001f) {
+//                        std::cout << "speed not high enough -> new orient = old" << std::endl;
+                        newOrient = frac * moveDir + (1.f - frac) * prefDir;
+                        newOrient.normalize();
+                    }
                 }
-            } else {
-                _orient.set(newOrient);
+
+                // TODO(curds01): At low speeds, small movement perturbations cause radically different
+                //  orientation changes.  It seems *reasonable* to scale maximum angular velocity
+                //  by the travel speed (in some sense) to prevent this.  HOWEVER, this would break
+                //  agents that have a sense of facing direction that they actively control.
+
+                // Now limit angular velocity.
+                const float MAX_ANGLE_CHANGE = timeStep * _maxAngVel;
+                float maxCt = cos(MAX_ANGLE_CHANGE);
+                // inner product of normalized vectors == cosine between vectors
+                // ct = cos(angle between newOrient and _orient)
+                float ct = newOrient * _orient;
+                if (ct < maxCt) {
+//                    std::cout << "max angle change exceeded" << std::endl;
+                    // changing direction at a rate greater than _maxAngVel
+                    float maxSt = sin(MAX_ANGLE_CHANGE);
+                    if (det(_orient, newOrient) > 0.f) {
+//                        std::cout << "rotate left" << std::endl;
+                        // rotate _orient left
+                        _orient.set(maxCt * _orient._x - maxSt * _orient._y, maxSt * _orient._x + maxCt * _orient._y);
+                    } else {
+//                        std::cout << "rotate right" << std::endl;
+                        // rotate _orient right
+                        _orient.set(maxCt * _orient._x + maxSt * _orient._y,
+                                    -maxSt * _orient._x + maxCt * _orient._y);
+                    }
+                } else {
+//                    std::cout << "angle change within limits" << std::endl;
+                    _orient.set(newOrient);
+                }
             }
         }
 

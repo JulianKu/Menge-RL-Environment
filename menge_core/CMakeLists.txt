@@ -102,7 +102,6 @@ find_package(TinyXML REQUIRED)
 
 ## Generate services in the 'srv' folder
 #add_service_files(
-#  FILES RunSim.srv
 #)
 
 ## Generate actions in the 'action' folder

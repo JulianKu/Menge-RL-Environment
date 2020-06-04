@@ -12,6 +12,7 @@ find_package(catkin REQUIRED
         message_generation
         std_msgs
         geometry_msgs
+        visualization_msgs
         )
 
 
@@ -57,7 +58,7 @@ find_package(catkin REQUIRED
 
 ## Generate services in the 'srv' folder
 add_service_files(
-   FILES RunSim.srv CmdVel.srv
+   FILES CmdVel.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -71,7 +72,8 @@ add_service_files(
 generate_messages(
    DEPENDENCIES
    std_msgs
-   geometry_msgs # Or other packages containing msgs
+   geometry_msgs
+   visualization_msgs # Or other packages containing msgs
 )
 
 ################################################
@@ -110,6 +112,7 @@ catkin_package(
   message_runtime
   std_msgs
   geometry_msgs
+  visualization_msgs
 #  DEPENDS system_lib
 )
 
