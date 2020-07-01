@@ -60,7 +60,6 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 
 // ROS
 #include <ros/ros.h>
-#include <ros/spinner.h>
 #include <ros/callback_queue.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/UInt8.h>
@@ -313,7 +312,6 @@ namespace Menge {
 				_sub_step = _nh->subscribe("step", 50, &Menge::Vis::GLViewer::setStepFromMsg, this, ros::TransportHints().tcpNoDelay());
 				_sub_run = _nh->subscribe("run", 50, &Menge::Vis::GLViewer::setRunFromMsg, this, ros::TransportHints().tcpNoDelay());
 				_pub_time = _nh->advertise<std_msgs::Float32>("menge_sim_time", 50, true);
-                _spinner.reset(new ros::AsyncSpinner(0, &queue));
 			}
 			/*!
 			 *	@brief		return ROS node handle
@@ -470,7 +468,6 @@ namespace Menge {
             ros::Subscriber _sub_step;
             ros::Subscriber _sub_run;
             ros::Publisher _pub_time;
-            boost::shared_ptr<ros::AsyncSpinner> _spinner;
 
 			/*!
 			 *	@brief		Initializes the OpenGL lighting based on the set of lights.

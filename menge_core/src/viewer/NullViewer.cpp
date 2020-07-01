@@ -107,11 +107,10 @@ namespace Menge {
 			while ( ros::ok() ) {
                 queue.callAvailable(ros::WallDuration());
 
-                // restart spinner and timer after pause
+                // restart timer after pause
                 if (lastItrPaused && !_pause) {
                     ROS_DEBUG("Switched from pause to running after update");
-                    ros::getGlobalCallbackQueue()->clear();
-                    _spinner->start();
+//                    ros::getGlobalCallbackQueue()->clear();
                     _fpsTimer.restart();
                 }
 
@@ -123,7 +122,6 @@ namespace Menge {
                     if (stepCounter == 0) {
                         ROS_DEBUG("Perform [%d] simulation steps", _requestedSteps);
                         ros::getGlobalCallbackQueue()->clear();
-                        _spinner->start();
                     }
                     stepCounter += 1;
 
@@ -132,7 +130,6 @@ namespace Menge {
                         _step = false;
                         stepCounter = 0;
                         _requestedSteps = 0;
-                        _spinner->stop();
 
                     } else {
                         _viewTime += _stepSize;
@@ -155,18 +152,11 @@ namespace Menge {
                     }
                 }
 
-                // stop spinner after pausing simulation or after executing step
-                if (!lastItrPaused && _pause) {
-                    ROS_INFO("Stop simulation");
-                    _spinner->stop();
-                }
-
                 lastItrPaused = _pause;
             }
 			std::cout << "Average frame computation time: " << _fpsTimer.average( 0.001f ) << " ms\n";
 			_scene->finish();
-            // Release AsyncSpinner object
-            _spinner.reset();
+
 		}
 	}	 // namespace Vis
 }	// namespace Menge

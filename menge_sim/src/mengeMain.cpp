@@ -66,6 +66,7 @@ Any questions or comments should be sent to the authors {menge,geom}@cs.unc.edu
 
 //ROS
 #include <ros/ros.h>
+#include <ros/spinner.h>
 #include <ros/callback_queue.h>
 #include <geometry_msgs/Twist.h>
 
@@ -104,8 +105,7 @@ SimulatorDB simDB;
  *	@param		dumpPath		The path to write screen grabs.  Only used in windows.
  *	@returns	0 for a successful run, non-zero otherwise.
  */
-int simMain( SimulatorDBEntry * dbEntry, const std::string & behaveFile, const std::string & sceneFile, const std::string & outFile, const std::string & scbVersion, bool visualize, const std::string & viewCfgFile, const std::string & dumpPath, ros::NodeHandle * nh) {
-    ros::CallbackQueue queue;
+int simMain( SimulatorDBEntry * dbEntry, const std::string & behaveFile, const std::string & sceneFile, const std::string & outFile, const std::string & scbVersion, bool visualize, const std::string & viewCfgFile, const std::string & dumpPath, ros::NodeHandle * nh, ros::CallbackQueue &queue) {
 	size_t agentCount;
 	if ( outFile != "" ) logger << Logger::INFO_MSG << "Attempting to write scb file: " << outFile << "\n";
 	//Initialize simulator	
@@ -190,6 +190,7 @@ int main(int argc, char* argv[]) {
 
 	ros::init(argc,argv,"menge_sim");
 	ros::NodeHandle nh;
+    ros::CallbackQueue queue;
 	//ROS_INFO_STREAM(" argument count " << argc << "," << argv[0] << "," << argv[1] << "," << argv[2]);
 	/*
 	std::string map_xml;
@@ -276,9 +277,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	ROS_INFO_STREAM(" useviz "<< useVis);
-
-	int result = simMain( simDBEntry, projSpec.getBehavior(), projSpec.getScene(), projSpec.getOutputName(), projSpec.getSCBVersion(), useVis, viewCfgFile, dumpPath , &nh);
-
+    boost::shared_ptr<ros::AsyncSpinner> _spinner;
+    _spinner.reset(new ros::AsyncSpinner(0, &queue));
+    _spinner->start();
+	int result = simMain( simDBEntry, projSpec.getBehavior(), projSpec.getScene(), projSpec.getOutputName(), projSpec.getSCBVersion(), useVis, viewCfgFile, dumpPath , &nh, queue);
+    _spinner->stop();
+    // Release AsyncSpinner object
+    _spinner.reset();
 	if ( result ) {
 		std::cerr << "Simulation terminated through error.  See error log for details.\n";
 	}
