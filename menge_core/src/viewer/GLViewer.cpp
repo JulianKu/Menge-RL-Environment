@@ -227,18 +227,16 @@ namespace Menge {
                 // handle ROS messages
 				queue.callAvailable(ros::WallDuration());
 
-				// restart spinner after pause
+				// restart after pause
                 if (lastItrPaused && !_pause) {
                     ROS_DEBUG("Switched from pause to running after update");
-                    ros::getGlobalCallbackQueue()->clear();
-                    _spinner->start();
+//                    ros::getGlobalCallbackQueue()->clear();
 
-                // start spinner for step + update sim
+                // update sim
                 } else if ( _pause && _step ) {
                     if (stepCounter == 0) {
                         ROS_DEBUG("Perform [%d] simulation steps", _requestedSteps);
-                        ros::getGlobalCallbackQueue()->clear();
-                        _spinner->start();
+//                        ros::getGlobalCallbackQueue()->clear();
                     }
                     stepCounter += 1;
 
@@ -247,7 +245,6 @@ namespace Menge {
                         _step = false;
                         stepCounter = 0;
                         _requestedSteps = 0;
-                        _spinner->stop();
                     } else {
                         offsetTime(_stepSize);
                         redraw = _update = true;
@@ -294,18 +291,12 @@ namespace Menge {
 					snapshotPNG( _width, _height, fullPath.str().c_str() );
 				}
 
-                // stop spinner after pausing simulation or after executing step
-                if (!lastItrPaused && _pause) {
-                    _spinner->stop();
-                }
 				_update = false;
 				lastItrPaused = _pause;
 			}
 			printAverages();
 
 			_scene->finish();
-            // Release AsyncSpinner object
-			_spinner.reset();
 		}
 
 		///////////////////////////////////////////////////////////////////////////
