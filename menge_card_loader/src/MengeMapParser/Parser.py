@@ -565,8 +565,10 @@ class MengeMapParser:
                 # generate samples from standard normal distribution
                 normal = np.random.randn(2, num_samples)
                 # scale so that distribution centred at initial value and cut off values that are too small
-                sampled_radii = np.maximum(np.around(normal[0] * radius / 3 + radius, decimals=2), 0.1)
-                sampled_speeds = np.maximum(np.around(normal[1] * pref_speed / 3 + pref_speed, decimals=2), 0.1)
+                sampled_radii = np.unique(np.maximum(np.around(normal[0] * radius / 3 + radius, decimals=2),
+                                                     0.1))
+                sampled_speeds = np.unique(np.maximum(np.around(normal[1] * pref_speed / 3 + pref_speed, decimals=2),
+                                                      0.1))
                 # create new AgentProfile for all combinations of radius and speed
                 for r in sampled_radii:
                     for speed in sampled_speeds:
